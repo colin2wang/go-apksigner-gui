@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // 中文文案（默认）。key 与 en.ts 一一对应；支持 {0}/{name} 占位符。
 export default {
   // 导航

@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 package i18n
 
 // messages 按语言存储文案表；前后端共享相同的 key 命名空间（sign.* / cert.* / tools.* / app.* / common.*）。

@@ -1,3 +1,8 @@
+<!--
+  Author: colin2wang (colin2wang@gmail.com)
+  Date: 2026-10-06
+-->
+
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { api } from '../api'

@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 import * as bindings from '../../wailsjs/go/main/App'
 import { EventsOff, EventsOn } from '../../wailsjs/runtime'
 import type {

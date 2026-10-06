@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // 前后端契约类型：与 internal/dto 保持一致（JSON 字段名一致即可）
 export interface TaskResult {
   success: boolean

@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // English messages. Keys mirror zh-CN.ts; supports {0}/{name} placeholders.
 export default {
   // Navigation

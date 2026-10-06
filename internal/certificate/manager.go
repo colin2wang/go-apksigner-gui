@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package certificate 封装 keytool 能力：密钥库生成、证书信息查看、导出与格式转换。
 package certificate
 

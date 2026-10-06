@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package apkinfo 解析 APK 基础信息：优先使用 aapt2 dump badging，
 // 工具缺失时回退到内置的二进制 AndroidManifest(AXML) 解析。
 package apkinfo

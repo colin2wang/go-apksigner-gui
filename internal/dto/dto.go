@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package dto 定义前后端统一的数据契约（JSON 序列化的唯一来源）。
 package dto
 

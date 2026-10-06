@@ -1,11 +1,16 @@
+# Author: colin2wang (colin2wang@gmail.com)
+# Date: 2026-10-06
+
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    go-apksigner-gui one-click build script: first compile frontend (Vite + pnpm), then compile Go backend (Wails v2).
+    go-apksigner-gui one-click build script: install frontend deps (pnpm), then let
+    `wails build` regenerate the Go<->frontend bindings, build the frontend and compile the
+    Go backend, finally copy app.yaml next to the produced executable.
 .PARAMETER SkipInstall
     Skip pnpm install (use when dependencies already exist)
 .PARAMETER SkipFrontend
-    Skip frontend build (reuse existing frontend/dist)
+    Skip the frontend build performed inside `wails build` (adds -s, reuses existing frontend/dist)
 .PARAMETER Package
     Additionally generate Windows installer using NSIS (NSIS must be installed locally)
 .PARAMETER Clean
@@ -50,7 +55,7 @@ try {
     Push-Location $root
 
     Write-Step 'Check build environment'
-    Assert-Command 'go' 'Please install Go 1.22+: https://go.dev/dl/' | Out-Null
+    Assert-Command 'go' 'Please install Go 1.26+: https://go.dev/dl/' | Out-Null
     Assert-Command 'pnpm' 'Please install pnpm: npm i -g pnpm' | Out-Null
     Write-Ok ('go   : ' + (go version))
     Write-Ok ('pnpm : ' + (pnpm -v))
@@ -114,7 +119,8 @@ try {
     wails @buildArgs
     if ($LASTEXITCODE -ne 0) { Write-Fail 'Go backend compilation failed'; exit 1 }
 
-    # 复制外部配置文件 app.yaml 到 exe 同目录（运行时优先读取，缺失则回退内置默认值）
+    # Copy the external configuration file app.yaml next to the executable
+    # (it takes precedence at runtime; falls back to built-in defaults when missing)
     Write-Step 'Copy external configuration (app.yaml)'
     $appYaml = Join-Path $root 'app.yaml'
     $binDir = Join-Path $root 'build\bin'
@@ -123,7 +129,7 @@ try {
         Copy-Item -Force $appYaml (Join-Path $binDir 'app.yaml')
         Write-Ok ('app.yaml -> ' + (Join-Path $binDir 'app.yaml'))
     } else {
-        Write-Warn 'app.yaml 未在仓库根目录找到，已跳过复制（应用将使用内置默认配置）'
+        Write-Warn 'app.yaml not found in the repository root, skipping copy (the app will use built-in default configuration)'
     }
 
     Write-Step 'Build completed'

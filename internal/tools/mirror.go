@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package tools 负责外部工具链（apksigner / zipalign / aapt2 / keytool）的
 // 探测、版本索引、下载安装与代理镜像配置。
 package tools

@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package appcfg 提供应用可外部化的配置加载：从 app.yaml 读取，
 // 缺失或解析失败时回退内置默认值（与 app.yaml 同款），保证离线可用。
 package appcfg

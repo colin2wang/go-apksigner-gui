@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package i18n 提供零依赖的轻量级国际化支持，集中管理用户可见文案。
 // 当前支持的语言：zh-CN（默认）、en。前后端共享相同的 key 命名空间。
 package i18n

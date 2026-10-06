@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 import { reactive, computed } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { api, EventNames, on } from '../api'

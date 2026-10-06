@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package fileutil 提供 ZIP 相关工具：安全解压、过滤重打包、目录操作。
 package fileutil
 

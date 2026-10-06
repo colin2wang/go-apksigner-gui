@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package executor 封装外部进程调用：统一超时控制、跨平台可执行文件后缀、
 // stdout/stderr 分流捕获与节流的实时行回调。所有参数以 []string 传递，不经 shell，
 // 天然免疫命令注入（Windows 批处理除外，内部已做转义）。

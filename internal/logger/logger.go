@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package logger 提供结构化文件日志、输出脱敏与内存环形缓冲。
 package logger
 

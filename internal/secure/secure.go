@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package secure 提供基于 AES-256-GCM 的轻量对称加密，用于在本机配置文件中以密文形式保存密钥库密码。
 // 主密钥随配置文件一同生成并存储（文件权限 0600），仅在本机、本用户下可用。
 package secure

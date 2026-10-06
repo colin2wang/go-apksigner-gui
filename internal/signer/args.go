@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package signer 封装 zipalign 对齐、apksigner 签名与验证，以及完整签名流水线。
 package signer
 

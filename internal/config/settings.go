@@ -1,3 +1,6 @@
+// Author: colin2wang (colin2wang@gmail.com)
+// Date: 2026-10-06
+
 // Package config 负责应用设置的持久化：JSON 文件 + 原子写入。
 // 说明：密钥库密码、代理外的任何凭据都不落盘。
 package config
