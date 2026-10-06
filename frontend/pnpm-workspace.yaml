@@ -1,0 +1,7 @@
+allowBuilds:
+  esbuild: true
+# pnpm 10+ 默认禁止依赖的构建脚本（postinstall），需要显式放行，
+# 否则 esbuild 的平台二进制缺失，导致 vite 构建失败。
+# onlyBuiltDependencies 为「允许执行构建脚本的依赖白名单」。
+onlyBuiltDependencies:
+  - esbuild

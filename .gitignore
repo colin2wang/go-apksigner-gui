@@ -1,0 +1,23 @@
+# Go 构建产物
+build/
+*.exe
+*.dll
+
+# 前端依赖与产物
+frontend/node_modules/
+frontend/dist/
+frontend/wailsjs/
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 日志与临时文件
+*.log
+tmp/
+
+# AI Tools
+.codebuddy/
+.atomcode/

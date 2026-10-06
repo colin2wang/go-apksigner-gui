@@ -1,0 +1,30 @@
+﻿node.exe : [WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.on
+lyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+所在位置 D:\Software\Frameworks\node-24.21.0-x64\pnpm.ps1:16 字符: 5
++     & "$basedir/node$exe"  "$basedir/node_modules/pnpm/bin/pnpm.mjs"  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([WARN] The "pnp...f each setting.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.onlyBuiltDepe
+ndencies". See https://pnpm.io/settings for the new home of each setting.
+✓ Lockfile passes supply-chain policies (verified 10m ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.25.12
+
+Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+[ERROR] Command failed with exit code 1: "D:\Software\Frameworks\node-24.21.0-x64\node.exe" "D:\Software\Frameworks\node-24.21.0-x64\node_modules\pnpm\bin\pnpm.mjs" install
+
+pnpm: Command failed with exit code 1: "D:\Software\Frameworks\node-24.21.0-x64\node.exe" "D:\Software\Frameworks\node-24.21.0-x64\node_modules\pnpm\bin\pnpm.mjs" install
+    at getFinalError (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:89319:14)
+    at makeError (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:91626:21)
+    at getSyncResult (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:93470:10)
+    at spawnSubprocessSync (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:93430:14)
+    at execaCoreSync (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:93360:23)
+    at callBoundExeca (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:95888:23)
+    at boundExeca (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:95865:49)
+    at sync2 (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:96024:10)
+    at runPnpmCli (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:273513:5)
+    at runDepsStatusCheck (file:///D:/Software/Frameworks/node-24.21.0-x64/node_modules/pnpm/dist/pnpm.mjs:274731:7)

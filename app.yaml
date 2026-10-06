@@ -1,0 +1,50 @@
+# go-apksigner-gui 外部配置
+# 打包脚本会将其复制到 exe 同目录，运行时优先读取；
+# 缺失或解析失败时自动回退内置默认值，不会阻断启动。
+
+# Android SDK 命令行工具（含 sdkmanager）下载地址，按系统区分
+sdkmanager:
+  windowsUrl: "https://dl.google.com/android/repository/commandlinetools-win-15859902_latest.zip"
+  windowsSha256: ""
+  # linuxUrl: "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip"
+  # linuxSha256: ""
+  # macUrl: "https://dl.google.com/android/repository/commandlinetools-mac-15859902_latest.zip"
+  # macSha256: ""
+
+# build-tools 安装配置
+buildTools:
+  defaultVersion: "36.1.0"
+  # 在线仓库索引不可达时的候选版本列表（如国内环境）
+  versions:
+    - "36.1.0"
+    - "35.0.1"
+    - "34.0.0"
+    - "33.0.2"
+
+# 镜像源（build-tools 仓库索引地址）
+mirrors:
+  - name: "Google 官方"
+    baseUrl: "https://dl.google.com/android/repository/"
+    note: "需要可访问 Google 服务"
+  - name: "腾讯云镜像"
+    baseUrl: "https://mirrors.cloud.tencent.com/AndroidSDK/"
+    note: "国内推荐"
+  - name: "清华大学镜像"
+    baseUrl: "https://mirrors.tuna.tsinghua.edu.cn/android/repository/"
+    note: "国内推荐"
+  - name: "大连东软镜像"
+    baseUrl: "https://mirrors.neusoft.edu.cn/android/repository/"
+    note: "教育网推荐"
+  - name: "中科大镜像"
+    baseUrl: "https://mirrors.ustc.edu.cn/android/repository/"
+    note: "国内备选"
+
+# 代理连通性测试目标
+proxyTest:
+  target: "https://www.google.com"
+  timeoutSeconds: 15
+
+# 下载参数
+download:
+  timeoutSeconds: 1800
+  retries: 3

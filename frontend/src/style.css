@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --brand: #3ddc84;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: radial-gradient(1200px 800px at 15% -10%, #1b2a4a 0%, #0f172a 55%, #0b1120 100%);
+  color: #e6edf7;
+  font-family: Roboto, Inter, 'Microsoft YaHei', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(61, 220, 132, 0.25);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(61, 220, 132, 0.45);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-white/5 bg-ink-800/70 p-5 shadow-glass backdrop-blur-xl;
+  }
+  .panel-title {
+    @apply mb-4 flex items-center gap-2 text-base font-medium tracking-wide text-white/90;
+  }
+  .field-label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wider text-muted;
+  }
+  .field-input {
+    @apply w-full rounded-xl border border-white/10 bg-ink-900/60 px-3 py-2 text-sm text-slate-100
+      outline-none transition placeholder:text-slate-500
+      focus:border-brand/60 focus:ring-2 focus:ring-brand/20;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium
+      transition disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-brand to-brand-dark text-ink-900 shadow-glow
+      hover:brightness-110 active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/5 text-slate-200 hover:border-brand/40 hover:text-white active:scale-[0.98];
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+  .kbd-text {
+    @apply break-all rounded-lg bg-ink-900/80 px-2 py-1 font-mono text-[11px] leading-relaxed text-brand-light;
+  }
+  .nav-item {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-300
+      transition hover:bg-white/5 hover:text-white;
+  }
+  .nav-item-active {
+    @apply bg-gradient-to-r from-brand/20 to-transparent text-white shadow-[inset_3px_0_0_0_#3ddc84];
+  }
+  .stat-value {
+    @apply font-mono text-sm text-slate-100;
+  }
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.28s ease;
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* TDesign 深色模式下的局部微调 */
+.t-input__inner {
+  background: transparent !important;
+}
+.t-select-input {
+  background: rgba(15, 23, 42, 0.6) !important;
+}
