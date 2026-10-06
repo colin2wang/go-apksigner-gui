@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"go-apksigner-gui/internal/dto"
+	"go-apksigner-gui/internal/i18n"
 )
 
 // IndexFileName Google SDK 仓库索引文件名。
@@ -100,7 +101,7 @@ func ParseRepository(data []byte, baseURL string, hostOS string) ([]dto.BuildToo
 			if len(versions) > 0 {
 				return versions, nil // 容忍索引中的局部错误
 			}
-			return nil, fmt.Errorf("解析仓库索引失败: %w", err)
+			return nil, fmt.Errorf("%s: %w", i18n.T("tools.err.parseIndex"), err)
 		}
 		start, ok := tok.(xml.StartElement)
 		if !ok || start.Name.Local != "remotePackage" {
@@ -152,7 +153,7 @@ func ParseRepository(data []byte, baseURL string, hostOS string) ([]dto.BuildToo
 		}
 	}
 	if len(versions) == 0 {
-		return nil, fmt.Errorf("索引中未找到适用于 %s 的 build-tools", hostOS)
+		return nil, fmt.Errorf("%s", i18n.T("tools.err.noBuildToolsInIndex", hostOS))
 	}
 	SortVersions(versions)
 	return versions, nil

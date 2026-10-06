@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"go-apksigner-gui/internal/dto"
+	"go-apksigner-gui/internal/i18n"
 )
 
 // ProgressFunc 下载过程回调。
@@ -34,11 +35,11 @@ func Download(ctx context.Context, client *http.Client, v dto.BuildToolVersion, 
 		ctx = context.Background()
 	}
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		return "", fmt.Errorf("创建下载目录失败: %w", err)
+		return "", fmt.Errorf("%s: %w", i18n.T("tools.err.mkDownloadDir"), err)
 	}
 	dest := filepath.Join(destDir, filepath.Base(v.FileName))
 	if dest == destDir || filepath.Base(v.FileName) == "" {
-		return "", fmt.Errorf("下载地址无效: %q", v.URL)
+		return "", fmt.Errorf("%s", i18n.T("tools.err.badURL", v.URL))
 	}
 
 	var lastErr error
@@ -53,7 +54,7 @@ func Download(ctx context.Context, client *http.Client, v dto.BuildToolVersion, 
 		lastErr = err
 		if attempt < 2 {
 			backoff := time.Duration(1<<attempt) * time.Second
-			emit(on, dto.Progress{FileName: v.FileName, Stage: "downloading", Message: fmt.Sprintf("下载中断，%v 后重试 (%d/3)", backoff, attempt+1)})
+			emit(on, dto.Progress{FileName: v.FileName, Stage: "downloading", Message: i18n.T("tools.msg.retry", backoff, attempt+1)})
 			select {
 			case <-ctx.Done():
 				return "", ctx.Err()
@@ -62,7 +63,7 @@ func Download(ctx context.Context, client *http.Client, v dto.BuildToolVersion, 
 		}
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("下载未完整完成")
+		lastErr = fmt.Errorf("%s", i18n.T("tools.err.downloadIncomplete"))
 	}
 	return "", lastErr
 }
@@ -80,14 +81,14 @@ func downloadOnce(ctx context.Context, client *http.Client, v dto.BuildToolVersi
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, v.URL, nil)
 	if err != nil {
-		return false, fmt.Errorf("构造下载请求失败: %w", err)
+		return false, fmt.Errorf("%s: %w", i18n.T("tools.err.makeReq"), err)
 	}
 	if offset > 0 {
 		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, fmt.Errorf("请求 %s 失败: %w", v.URL, err)
+		return false, fmt.Errorf("%s: %w", i18n.T("tools.err.reqFailed", v.URL), err)
 	}
 	defer resp.Body.Close()
 
@@ -96,7 +97,7 @@ func downloadOnce(ctx context.Context, client *http.Client, v dto.BuildToolVersi
 		offset = 0 // 服务端不支持续传，从头下载
 	case http.StatusPartialContent:
 	default:
-		return false, fmt.Errorf("下载失败，HTTP %d: %s", resp.StatusCode, v.URL)
+		return false, fmt.Errorf("%s", i18n.T("tools.err.httpStatus", resp.StatusCode, v.URL))
 	}
 
 	total := v.Size
@@ -116,7 +117,7 @@ func downloadOnce(ctx context.Context, client *http.Client, v dto.BuildToolVersi
 	}
 	file, err := os.OpenFile(dest, flags, 0o644)
 	if err != nil {
-		return false, fmt.Errorf("创建文件 %s 失败: %w", dest, err)
+		return false, fmt.Errorf("%s: %w", i18n.T("tools.err.createFile", dest), err)
 	}
 	defer file.Close()
 
@@ -146,7 +147,7 @@ func downloadOnce(ctx context.Context, client *http.Client, v dto.BuildToolVersi
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
 			if _, werr := writer.Write(buf[:n]); werr != nil {
-				return false, fmt.Errorf("写入文件失败: %w", werr)
+				return false, fmt.Errorf("%s: %w", i18n.T("tools.err.writeFile"), werr)
 			}
 			downloaded += int64(n)
 			if time.Since(lastEmit) >= progressInterval {
@@ -158,7 +159,7 @@ func downloadOnce(ctx context.Context, client *http.Client, v dto.BuildToolVersi
 			break
 		}
 		if readErr != nil {
-			return false, fmt.Errorf("读取数据失败: %w", readErr)
+			return false, fmt.Errorf("%s: %w", i18n.T("tools.err.readData"), readErr)
 		}
 	}
 	emitProgress(on, v.FileName, downloaded, total, "downloading", "")
@@ -168,7 +169,7 @@ func downloadOnce(ctx context.Context, client *http.Client, v dto.BuildToolVersi
 		return false, err
 	}
 	if v.Size > 0 && fi.Size() != v.Size {
-		return false, fmt.Errorf("文件大小不符: 实际 %d，预期 %d", fi.Size(), v.Size)
+		return false, fmt.Errorf("%s", i18n.T("tools.err.sizeMismatch", fi.Size(), v.Size))
 	}
 
 	emitProgress(on, v.FileName, downloaded, total, "verifying", "正在校验文件完整性")
@@ -176,7 +177,7 @@ func downloadOnce(ctx context.Context, client *http.Client, v dto.BuildToolVersi
 		actual := strings.ToLower(hex.EncodeToString(hasher.Sum(nil)))
 		if !strings.EqualFold(actual, strings.ToLower(v.SHA256)) {
 			_ = os.Remove(dest)
-			return false, fmt.Errorf("SHA256 校验失败，期望 %s，实际 %s", v.SHA256, actual)
+			return false, fmt.Errorf("%s", i18n.T("tools.err.sha256Mismatch", v.SHA256, actual))
 		}
 	}
 	return true, nil

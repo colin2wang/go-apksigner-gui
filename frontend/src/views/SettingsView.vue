@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { api } from '../api'
+import { t, setLocale, locales, type Locale } from '../i18n'
 import { notify, refreshTools, saveSettings, state } from '../stores/app'
 import type { ToolStatus } from '../api/types'
 
@@ -28,7 +29,7 @@ function setDefaultScheme(key: SchemeKey, value: boolean) {
 
 async function chooseToolsDir() {
   try {
-    const dir = await api.selectDirectory('选择工具存放目录')
+    const dir = await api.selectDirectory(t('settings.toolsDirTitle'))
     if (dir) {
       state.settings.toolsDir = dir
       markDirty()
@@ -40,7 +41,7 @@ async function chooseToolsDir() {
 
 async function chooseSdkDir() {
   try {
-    const dir = await api.selectDirectory('选择 Android SDK 根目录')
+    const dir = await api.selectDirectory(t('settings.sdkDirTitle'))
     if (dir) {
       state.settings.androidSdk = dir
       markDirty()
@@ -88,10 +89,17 @@ async function testProxy() {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     proxyTest.value = { ok: false, msg }
-    notify('error', `代理测试失败: ${msg}`)
+    notify('error', t('settings.err.proxyTest', msg))
   } finally {
     testingProxy.value = false
   }
+}
+
+// changeLanguage 切换界面语言：立即更新前端 locale 并通知后端 SetLanguage 持久化。
+function changeLanguage() {
+  const value = (state.settings.language || 'zh-CN') as Locale
+  setLocale(value)
+  api.setLanguage(value)
 }
 </script>
 
@@ -100,31 +108,31 @@ async function testProxy() {
     <section class="panel">
       <div class="panel-title">
         <span class="h-1.5 w-1.5 rounded-full bg-brand"></span>
-        路径
+        {{ t('settings.section.path') }}
       </div>
       <div class="grid gap-4">
         <div>
-          <label class="field-label">工具存放目录</label>
+          <label class="field-label">{{ t('settings.field.toolsDir') }}</label>
           <div class="flex gap-2">
             <input :value="state.settings.toolsDir" readonly class="field-input cursor-default opacity-80" />
-            <button class="btn-ghost shrink-0" @click="chooseToolsDir">更改</button>
+            <button class="btn-ghost shrink-0" @click="chooseToolsDir">{{ t('settings.change') }}</button>
           </div>
-          <p class="mt-1 text-[11px] text-muted">配置文件：{{ state.settings.configPath }}</p>
+          <p class="mt-1 text-[11px] text-muted">{{ t('settings.configFile') }}{{ state.settings.configPath }}</p>
         </div>
 
         <div>
-          <label class="field-label">手工指定工具路径（留空则自动探测）</label>
+          <label class="field-label">{{ t('settings.field.manualTools') }}</label>
           <div class="grid gap-2 md:grid-cols-2">
             <div v-for="tool in state.tools" :key="tool.name" class="flex items-center gap-2">
               <span class="w-24 shrink-0 font-mono text-xs text-slate-300">{{ tool.name }}</span>
               <input
                 :value="toolPaths[tool.name] ?? ''"
                 class="field-input flex-1"
-                :placeholder="tool.path || '自动探测'"
+                :placeholder="tool.path || t('settings.autoDetect')"
                 @input="markDirty"
                 @change="(e) => (toolPaths[tool.name] = (e.target as HTMLInputElement).value)"
               />
-              <button class="btn-ghost shrink-0 !px-2 !text-xs" @click="pickToolPath(tool)">浏览</button>
+              <button class="btn-ghost shrink-0 !px-2 !text-xs" @click="pickToolPath(tool)">{{ t('common.browse') }}</button>
             </div>
           </div>
         </div>
@@ -133,24 +141,38 @@ async function testProxy() {
 
     <section class="panel">
       <div class="panel-title">
+        <span class="h-1.5 w-1.5 rounded-full bg-brand"></span>
+        {{ t('settings.section.language') }}
+      </div>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="field-label">{{ t('settings.field.language') }}</label>
+          <select v-model="state.settings.language" class="field-input" @change="changeLanguage">
+            <option v-for="opt in locales" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
         <span class="h-1.5 w-1.5 rounded-full bg-brand-light"></span>
-        Android SDK
+        {{ t('settings.section.sdk') }}
       </div>
       <div class="grid gap-4">
         <div>
-          <label class="field-label">Android SDK 路径</label>
+          <label class="field-label">{{ t('settings.field.sdkPath') }}</label>
           <div class="flex gap-2">
             <input
               :value="state.settings.androidSdk"
               readonly
               class="field-input cursor-default opacity-80"
-              placeholder="留空则由应用自动下载 cmdline-tools 安装"
+              :placeholder="t('settings.sdkPlaceholder')"
             />
-            <button class="btn-ghost shrink-0" @click="chooseSdkDir">选择</button>
+            <button class="btn-ghost shrink-0" @click="chooseSdkDir">{{ t('settings.select') }}</button>
           </div>
           <p class="mt-1 text-[11px] text-muted">
-            已手动安装 Android SDK（含 build-tools）时填写其根目录，应用将直接从此目录探测 apksigner / zipalign / aapt2；
-            留空则使用工具目录下的托管 SDK，首次安装时自动下载 command-line tools 并通过 sdkmanager 安装 build-tools。
+            {{ t('settings.sdkHint') }}
           </p>
         </div>
       </div>
@@ -159,11 +181,11 @@ async function testProxy() {
     <section class="panel">
       <div class="panel-title">
         <span class="h-1.5 w-1.5 rounded-full bg-sky-400"></span>
-        镜像源与代理
+        {{ t('settings.section.mirror') }}
       </div>
       <div class="grid gap-4 md:grid-cols-2">
         <div>
-          <label class="field-label">下载镜像源</label>
+          <label class="field-label">{{ t('settings.field.mirror') }}</label>
           <select v-model="state.settings.mirror" class="field-input" @change="markDirty">
             <option v-for="m in state.mirrors" :key="m.baseUrl" :value="m">{{ m.name }} - {{ m.note }}</option>
           </select>
@@ -171,11 +193,11 @@ async function testProxy() {
         <div class="flex items-end">
           <label class="flex cursor-pointer items-center gap-2 pb-2.5 text-sm text-slate-200">
             <input v-model="state.settings.proxy.enabled" type="checkbox" class="accent-brand" @change="markDirty" />
-            启用下载代理
+            {{ t('settings.enableProxy') }}
           </label>
         </div>
         <div>
-          <label class="field-label">代理类型</label>
+          <label class="field-label">{{ t('settings.field.proxyType') }}</label>
           <select v-model="state.settings.proxy.type" class="field-input" @change="markDirty">
             <option value="http">HTTP</option>
             <option value="https">HTTPS</option>
@@ -184,20 +206,20 @@ async function testProxy() {
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="field-label">主机</label>
+            <label class="field-label">{{ t('settings.field.proxyHost') }}</label>
             <input v-model="state.settings.proxy.host" class="field-input" placeholder="127.0.0.1" @input="markDirty" />
           </div>
           <div>
-            <label class="field-label">端口</label>
+            <label class="field-label">{{ t('settings.field.proxyPort') }}</label>
             <input v-model.number="state.settings.proxy.port" type="number" class="field-input" @input="markDirty" />
           </div>
         </div>
         <div>
-          <label class="field-label">代理用户名（可选）</label>
+          <label class="field-label">{{ t('settings.field.proxyUser') }}</label>
           <input v-model="state.settings.proxy.username" class="field-input" @input="markDirty" />
         </div>
         <div>
-          <label class="field-label">代理密码（可选）</label>
+          <label class="field-label">{{ t('settings.field.proxyPass') }}</label>
           <input v-model="state.settings.proxy.password" type="password" class="field-input" @input="markDirty" />
         </div>
 
@@ -207,7 +229,7 @@ async function testProxy() {
               v-if="testingProxy"
               class="mr-1 inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent align-[-1px]"
             />
-            {{ testingProxy ? '测试中…' : '测试代理连通性' }}
+            {{ testingProxy ? t('settings.testing') : t('settings.testProxy') }}
           </button>
           <span
             v-if="proxyTest"
@@ -222,7 +244,7 @@ async function testProxy() {
     <section class="panel">
       <div class="panel-title">
         <span class="h-1.5 w-1.5 rounded-full bg-brand-light"></span>
-        默认签名方案
+        {{ t('settings.section.scheme') }}
       </div>
       <div class="grid gap-3 md:grid-cols-4">
         <label
@@ -242,10 +264,10 @@ async function testProxy() {
     </section>
 
     <div class="flex flex-wrap items-center gap-3">
-      <button class="btn-primary" @click="apply">保存设置</button>
-      <button class="btn-ghost" @click="refreshTools">重新检测工具</button>
-      <button class="btn-ghost" @click="cleanTemp">清理临时文件</button>
-      <span v-if="dirty" class="text-xs text-amber-300">有未保存的修改</span>
+      <button class="btn-primary" @click="apply">{{ t('settings.save') }}</button>
+      <button class="btn-ghost" @click="refreshTools">{{ t('settings.redetect') }}</button>
+      <button class="btn-ghost" @click="cleanTemp">{{ t('settings.cleanTemp') }}</button>
+      <span v-if="dirty" class="text-xs text-amber-300">{{ t('settings.unsaved') }}</span>
     </div>
   </div>
 </template>

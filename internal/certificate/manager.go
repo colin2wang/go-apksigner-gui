@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go-apksigner-gui/internal/dto"
+	"go-apksigner-gui/internal/i18n"
 	"go-apksigner-gui/internal/logger"
 	"go-apksigner-gui/internal/tools"
 )
@@ -30,7 +31,7 @@ const DefaultValidity = 25 * 365
 // keytool 获取当前可用的 keytool 工具。
 func (m *Manager) keytool() (tools.Tool, error) {
 	if m == nil || m.toolMgr == nil {
-		return tools.Tool{}, fmt.Errorf("证书管理器未初始化")
+		return tools.Tool{}, fmt.Errorf("%s", i18n.T("cert.err.managerUninit"))
 	}
 	return m.toolMgr.MustTool("keytool")
 }
@@ -46,7 +47,7 @@ func (m *Manager) runKeytool(ctx context.Context, timeout time.Duration, args []
 	}
 	res := tools.RunTool(ctx, kt, append(append([]string{}, javaLocaleArgs...), args...), timeout, nil)
 	if res == nil {
-		return nil, fmt.Errorf("keytool 执行无返回结果")
+		return nil, fmt.Errorf("%s", i18n.T("cert.err.keytoolNoResult"))
 	}
 	if res.StartErr != nil {
 		return nil, res.StartErr
@@ -54,7 +55,7 @@ func (m *Manager) runKeytool(ctx context.Context, timeout time.Duration, args []
 	out := res.Output()
 	logger.Debug("keytool 输出", "args", len(args), "exit", res.ExitCode)
 	if res.ExitCode != 0 {
-		return &toolsRunResult{Output: out, ExitCode: res.ExitCode}, fmt.Errorf("keytool 退出码 %d: %s", res.ExitCode, logger.Mask(strings.TrimSpace(res.ErrorText()), secrets...))
+		return &toolsRunResult{Output: out, ExitCode: res.ExitCode}, fmt.Errorf("%s", i18n.T("cert.err.keytoolExit", res.ExitCode, logger.Mask(strings.TrimSpace(res.ErrorText()), secrets...)))
 	}
 	return &toolsRunResult{Output: out, ExitCode: res.ExitCode}, nil
 }
@@ -67,28 +68,28 @@ type toolsRunResult struct {
 // ValidateRequest 校验生成密钥库的入参。
 func ValidateRequest(req dto.KeystoreRequest) error {
 	if strings.TrimSpace(req.OutputPath) == "" {
-		return fmt.Errorf("请选择密钥库保存路径")
+		return fmt.Errorf("%s", i18n.T("cert.err.noOutputPath"))
 	}
 	if strings.TrimSpace(req.Cert.Alias) == "" {
-		return fmt.Errorf("请填写证书别名")
+		return fmt.Errorf("%s", i18n.T("cert.err.noAlias"))
 	}
 	if len(req.StorePass) < 6 {
-		return fmt.Errorf("密钥库密码至少需要 6 位")
+		return fmt.Errorf("%s", i18n.T("cert.err.storePassShort"))
 	}
 	if req.KeyPass == "" {
 		req.KeyPass = req.StorePass
 	}
 	if len(req.KeyPass) < 6 {
-		return fmt.Errorf("密钥密码至少需要 6 位")
+		return fmt.Errorf("%s", i18n.T("cert.err.keyPassShort"))
 	}
 	if strings.TrimSpace(req.Cert.CommonName) == "" {
-		return fmt.Errorf("请填写通用名 (CN)")
+		return fmt.Errorf("%s", i18n.T("cert.err.noCN"))
 	}
 	ext := strings.ToLower(filepath.Ext(req.OutputPath))
 	switch ext {
 	case ".jks", ".keystore", ".p12", ".pfx":
 	default:
-		return fmt.Errorf("密钥库后缀应为 .jks/.keystore/.p12/.pfx，当前为 %q", ext)
+		return fmt.Errorf("%s", i18n.T("cert.err.badExt", ext))
 	}
 	return nil
 }
@@ -104,7 +105,7 @@ func (m *Manager) Generate(ctx context.Context, req dto.KeystoreRequest) (string
 	}
 	if dir := filepath.Dir(req.OutputPath); dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return "", fmt.Errorf("创建目录失败: %w", err)
+			return "", fmt.Errorf("%s: %w", i18n.T("cert.err.createDir"), err)
 		}
 	}
 	res, err := m.runKeytool(ctx, 2*time.Minute, args, req.StorePass, req.KeyPass)
@@ -158,7 +159,7 @@ func buildGenArgs(req dto.KeystoreRequest) ([]string, error) {
 		args = append(args, "-keysize", fmt.Sprintf("%d", keySize))
 	default:
 		if algo != "RSA" {
-			return nil, fmt.Errorf("不支持的密钥算法: %s", algo)
+			return nil, fmt.Errorf("%s", i18n.T("cert.err.unsupportedAlgo", algo))
 		}
 		args = append(args, "-keysize", fmt.Sprintf("%d", keySize))
 	}
@@ -203,10 +204,10 @@ func inferredStoreType(path string) string {
 // List 查看密钥库详情。
 func (m *Manager) List(ctx context.Context, path, storePass string) (*dto.KeystoreInfo, error) {
 	if path == "" {
-		return nil, fmt.Errorf("请选择密钥库文件")
+		return nil, fmt.Errorf("%s", i18n.T("cert.err.noKeystore"))
 	}
 	if storePass == "" {
-		return nil, fmt.Errorf("请输入密钥库密码")
+		return nil, fmt.Errorf("%s", i18n.T("cert.err.noStorePass"))
 	}
 	args := []string{"-list", "-v", "-keystore", path, "-storepass", storePass}
 	res, err := m.runKeytool(ctx, time.Minute, args, storePass)
@@ -219,7 +220,7 @@ func (m *Manager) List(ctx context.Context, path, storePass string) (*dto.Keysto
 		info.Type = inferredStoreType(path)
 	}
 	if len(info.Entries) == 0 {
-		return &info, fmt.Errorf("未解析到证书条目，请确认密码是否正确（原始输出已附在日志中）")
+		return &info, fmt.Errorf("%s", i18n.T("cert.err.noEntry"))
 	}
 	info.Raw = ""
 	return &info, nil
@@ -241,7 +242,7 @@ func (m *Manager) Aliases(ctx context.Context, path, storePass string) ([]string
 // Export 导出证书（PEM 格式 .cer/.pem）。
 func (m *Manager) Export(ctx context.Context, keystorePath, storePass, alias, outputPath string) (string, error) {
 	if keystorePath == "" || outputPath == "" {
-		return "", fmt.Errorf("请选择密钥库与导出路径")
+		return "", fmt.Errorf("%s", i18n.T("cert.err.exportPaths"))
 	}
 	if dir := filepath.Dir(outputPath); dir != "" {
 		_ = os.MkdirAll(dir, 0o755)
@@ -267,10 +268,10 @@ func (m *Manager) Export(ctx context.Context, keystorePath, storePass, alias, ou
 // Convert 密钥库格式转换（JKS <-> PKCS12）。
 func (m *Manager) Convert(ctx context.Context, srcPath, srcPass, dstPath, dstPass, dstType string) (string, error) {
 	if srcPath == "" || dstPath == "" {
-		return "", fmt.Errorf("请选择源密钥库与目标路径")
+		return "", fmt.Errorf("%s", i18n.T("cert.err.convertPaths"))
 	}
 	if srcPath == dstPath {
-		return "", fmt.Errorf("源与目标路径不能相同")
+		return "", fmt.Errorf("%s", i18n.T("cert.err.samePath"))
 	}
 	dstType = strings.ToUpper(defaultString(dstType, inferredStoreType(dstPath)))
 	args := []string{
@@ -296,7 +297,7 @@ func (m *Manager) Convert(ctx context.Context, srcPath, srcPass, dstPath, dstPas
 // DeleteAlias 删除密钥库中的别名。
 func (m *Manager) DeleteAlias(ctx context.Context, path, storePass, alias string) (string, error) {
 	if alias == "" {
-		return "", fmt.Errorf("请输入要删除的别名")
+		return "", fmt.Errorf("%s", i18n.T("cert.err.noAliasDel"))
 	}
 	args := []string{"-delete", "-keystore", path, "-storepass", storePass, "-alias", alias}
 	res, err := m.runKeytool(ctx, time.Minute, args, storePass)

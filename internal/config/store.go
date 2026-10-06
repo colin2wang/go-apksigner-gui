@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"go-apksigner-gui/internal/i18n"
 )
 
 // Store 线程安全的配置存储器。
@@ -63,7 +65,7 @@ func (s *Store) Load() error {
 	}
 	var v Settings
 	if err := json.Unmarshal(data, &v); err != nil {
-		return fmt.Errorf("解析 %s 失败: %w", s.path, err)
+		return fmt.Errorf("%s: %w", i18n.T("config.err.parse", s.path), err)
 	}
 	applyDefaults(&v)
 	s.data = v
@@ -139,6 +141,9 @@ func applyDefaults(s *Settings) {
 	}
 	if s.SavedPasswords == nil {
 		s.SavedPasswords = map[string]string{}
+	}
+	if s.Language == "" {
+		s.Language = "zh-CN"
 	}
 	if !s.DefaultV1 && !s.DefaultV2 && !s.DefaultV3 {
 		s.DefaultV1 = true

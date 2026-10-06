@@ -11,6 +11,7 @@ import (
 
 	"go-apksigner-gui/internal/dto"
 	"go-apksigner-gui/internal/fileutil"
+	"go-apksigner-gui/internal/i18n"
 	"go-apksigner-gui/internal/logger"
 	"go-apksigner-gui/internal/tools"
 )
@@ -42,7 +43,7 @@ var (
 func (p *Parser) Parse(ctx context.Context, apkPath string) (dto.APKInfo, error) {
 	info := dto.APKInfo{Path: apkPath, FileSize: fileutil.FileSize(apkPath)}
 	if !fileutil.Exists(apkPath) {
-		return info, fmt.Errorf("APK 不存在: %s", apkPath)
+		return info, fmt.Errorf("%s", i18n.T("sign.err.apkNotExist", apkPath))
 	}
 	if p != nil && p.verifier != nil {
 		info.IsSigned = p.verifier.IsSigned(ctx, apkPath)
@@ -70,7 +71,7 @@ func (p *Parser) Parse(ctx context.Context, apkPath string) (dto.APKInfo, error)
 // parseWithAapt2 调用 aapt2 dump badging 并解析输出。
 func (p *Parser) parseWithAapt2(ctx context.Context, apkPath string) (dto.APKInfo, error) {
 	if p == nil || p.toolMgr == nil {
-		return dto.APKInfo{}, fmt.Errorf("工具管理器未初始化")
+		return dto.APKInfo{}, fmt.Errorf("%s", i18n.T("apkinfo.err.managerUninit"))
 	}
 	aapt2Tool, err := p.toolMgr.MustTool("aapt2")
 	if err != nil {
@@ -78,16 +79,16 @@ func (p *Parser) parseWithAapt2(ctx context.Context, apkPath string) (dto.APKInf
 	}
 	res := tools.RunTool(ctx, aapt2Tool, []string{"dump", "badging", apkPath}, 2*time.Minute, nil)
 	if res == nil || res.StartErr != nil {
-		return dto.APKInfo{}, fmt.Errorf("aapt2 执行失败")
+		return dto.APKInfo{}, fmt.Errorf("%s", i18n.T("apkinfo.err.aapt2Fail"))
 	}
 	if res.ExitCode != 0 {
-		return dto.APKInfo{}, fmt.Errorf("aapt2 退出码 %d: %s", res.ExitCode, strings.TrimSpace(res.ErrorText()))
+		return dto.APKInfo{}, fmt.Errorf("%s", i18n.T("apkinfo.err.aapt2Exit", res.ExitCode, strings.TrimSpace(res.ErrorText())))
 	}
 	info := ParseBadging(res.Output())
 	info.Path = apkPath
 	info.Source = "aapt2"
 	if info.PackageName == "" {
-		return info, fmt.Errorf("aapt2 输出中未找到包名")
+		return info, fmt.Errorf("%s", i18n.T("apkinfo.err.noPackageInBadging"))
 	}
 	info.RawOutput = ""
 	return info, nil

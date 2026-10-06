@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"go-apksigner-gui/internal/i18n"
 )
 
 // Result 描述一次外部进程的完整结果。
@@ -74,7 +76,7 @@ type Options struct {
 const DefaultTimeout = 5 * time.Minute
 
 // ErrEmptyCommand 未提供可执行文件时返回。
-var ErrEmptyCommand = errors.New("executor: 未提供可执行文件")
+var ErrEmptyCommand = errors.New(i18n.T("executor.err.noBin"))
 
 // windowsSuffix 记录 Windows 平台下常见工具的可执行后缀。
 var windowsSuffix = map[string]string{
@@ -156,7 +158,7 @@ func Run(ctx context.Context, name string, args []string, opt Options) *Result {
 
 	start := time.Now()
 	if err := cmd.Start(); err != nil {
-		return &Result{ExitCode: -1, StartErr: fmt.Errorf("启动 %s 失败: %w", name, err), Err: err}
+		return &Result{ExitCode: -1, StartErr: fmt.Errorf("%s: %w", i18n.T("executor.err.start", name), err), Err: err}
 	}
 
 	var mu sync.Mutex
@@ -200,10 +202,10 @@ func RunSimple(ctx context.Context, name string, args []string, timeout time.Dur
 		return output, res.StartErr
 	}
 	if res.TimedOut {
-		return output, fmt.Errorf("命令执行超时 (%v): %s", timeout, name)
+		return output, fmt.Errorf("%s", i18n.T("executor.err.timeout", timeout, name))
 	}
 	if res.ExitCode != 0 {
-		return output, fmt.Errorf("%s 退出码 %d: %s", filepath.Base(name), res.ExitCode, res.ErrorText())
+		return output, fmt.Errorf("%s", i18n.T("executor.err.exit", filepath.Base(name), res.ExitCode, res.ErrorText()))
 	}
 	return output, nil
 }

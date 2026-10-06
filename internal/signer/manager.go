@@ -10,6 +10,7 @@ import (
 
 	"go-apksigner-gui/internal/dto"
 	"go-apksigner-gui/internal/fileutil"
+	"go-apksigner-gui/internal/i18n"
 	"go-apksigner-gui/internal/logger"
 	"go-apksigner-gui/internal/tools"
 )
@@ -65,7 +66,7 @@ func (c *Callbacks) mask(text string) string {
 // MustTool 获取工具链中的可执行文件。
 func (m *Manager) mustTool(name string) (tools.Tool, error) {
 	if m == nil || m.toolMgr == nil {
-		return tools.Tool{}, fmt.Errorf("签名管理器未初始化")
+		return tools.Tool{}, fmt.Errorf("%s", i18n.T("sign.err.managerUninit"))
 	}
 	return m.toolMgr.MustTool(name)
 }
@@ -73,14 +74,14 @@ func (m *Manager) mustTool(name string) (tools.Tool, error) {
 // RemoveSignature 剔除 APK 中的 META-INF 目录，得到未签名 APK。
 func (m *Manager) RemoveSignature(ctx context.Context, input, output string) (int, error) {
 	if !fileutil.Exists(input) {
-		return 0, fmt.Errorf("APK 不存在: %s", input)
+		return 0, fmt.Errorf("%s", i18n.T("sign.err.apkNotExist", input))
 	}
 	if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
 		return 0, err
 	}
 	removed, err := fileutil.RemoveEntries(input, output, []string{"META-INF/"})
 	if err != nil {
-		return removed, fmt.Errorf("移除旧签名失败: %w", err)
+		return removed, fmt.Errorf("%s: %w", i18n.T("sign.err.removeFail"), err)
 	}
 	logger.Info("已移除旧签名", "removed", removed, "output", output)
 	return removed, nil
@@ -97,16 +98,16 @@ func (m *Manager) ZipAlign(ctx context.Context, input, output string, cb *Callba
 	}
 	res := tools.RunTool(ctx, tool, BuildZipAlignArgs(input, output), zipAlignTimeout, cb.line)
 	if res == nil {
-		return "", fmt.Errorf("zipalign 未返回结果")
+		return "", fmt.Errorf("%s", i18n.T("sign.err.zipalignNoResult"))
 	}
 	if res.StartErr != nil {
 		return "", res.StartErr
 	}
 	if res.TimedOut {
-		return res.Output(), fmt.Errorf("zipalign 执行超时")
+		return res.Output(), fmt.Errorf("%s", i18n.T("sign.err.zipalignTimeout"))
 	}
 	if res.ExitCode != 0 {
-		return res.Output(), fmt.Errorf("zipalign 失败(退出码 %d): %s", res.ExitCode, strings.TrimSpace(res.ErrorText()))
+		return res.Output(), fmt.Errorf("%s", i18n.T("sign.err.zipalignFail", res.ExitCode, strings.TrimSpace(res.ErrorText())))
 	}
 	return res.Output(), nil
 }
@@ -118,17 +119,17 @@ func (m *Manager) Verify(ctx context.Context, apkPath string) (*dto.VerifyResult
 		return nil, err
 	}
 	if !fileutil.Exists(apkPath) {
-		return nil, fmt.Errorf("APK 不存在: %s", apkPath)
+		return nil, fmt.Errorf("%s", i18n.T("sign.err.apkNotExist", apkPath))
 	}
 	res := tools.RunTool(ctx, tool, BuildVerifyArgs(apkPath, true), verifyTimeout, nil)
 	if res == nil {
-		return nil, fmt.Errorf("apksigner verify 未返回结果")
+		return nil, fmt.Errorf("%s", i18n.T("sign.err.verifyNoResult"))
 	}
 	if res.StartErr != nil {
 		return nil, res.StartErr
 	}
 	if res.TimedOut {
-		return nil, fmt.Errorf("apksigner verify 执行超时")
+		return nil, fmt.Errorf("%s", i18n.T("sign.err.verifyTimeout"))
 	}
 	result := ParseVerifyOutput(res.Output())
 	return &result, nil

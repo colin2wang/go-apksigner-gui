@@ -1,6 +1,7 @@
 import { reactive, computed } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { api, EventNames, on } from '../api'
+import { t, initLocale } from '../i18n'
 import type {
   AppMeta,
   AppSettings,
@@ -27,6 +28,7 @@ const emptySettings: AppSettings = {
   mirror: { name: '', baseUrl: '' },
   proxy: { enabled: false, type: 'http', host: '', port: 0, username: '', password: '' },
   androidSdk: '',
+  language: 'zh-CN',
   tools: {},
 }
 
@@ -70,7 +72,7 @@ export async function refreshTools() {
   try {
     state.tools = await api.getTools()
   } catch (err) {
-    notify('error', `工具检测失败: ${err}`)
+    notify('error', t('store.toolsDetectFailed', String(err)))
   } finally {
     state.loadingTools = false
   }
@@ -81,7 +83,7 @@ export async function loadVersions() {
   try {
     state.versions = await api.fetchVersions()
   } catch (err) {
-    notify('error', `获取版本列表失败: ${err}`)
+    notify('error', t('store.versionsFailed', String(err)))
   } finally {
     state.loadingVersions = false
   }
@@ -94,6 +96,7 @@ export async function initStore() {
     console.error(err)
   }
   state.settings = { ...emptySettings, ...(await api.getSettings()) }
+  initLocale(state.settings.language)
   state.mirrors = await api.getMirrors()
   if (!state.settings.recentFiles) state.settings.recentFiles = []
   if (!state.settings.recentAliases) state.settings.recentAliases = []
@@ -128,7 +131,7 @@ function subscribeEvents() {
 
 export async function saveSettings() {
   await api.saveSettings(state.settings)
-  notify('success', '设置已保存')
+  notify('success', t('store.settingsSaved'))
   await refreshTools()
 }
 

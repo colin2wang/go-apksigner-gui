@@ -23,6 +23,7 @@ type Settings struct {
 	Mirror       MirrorSetting     `json:"mirror"`
 	Proxy        ProxySetting      `json:"proxy"`
 	AndroidSDK   string            `json:"androidSdk"`
+	Language     string            `json:"language"` // 界面语言：zh-CN（默认）| en
 	CleanOnExit  bool              `json:"cleanOnExit"`
 	Tools        map[string]string `json:"tools,omitempty"` // 手工指定的工具路径
 	// CryptoKey 本地主密钥（base64 编码的 32 字节），用于加密保存的密钥库密码。
@@ -58,6 +59,7 @@ func Defaults() Settings {
 		RecentFiles:    []string{},
 		RecentAlias:    []string{},
 		SavedPasswords: map[string]string{},
+		Language:       "zh-CN",
 		Mirror: MirrorSetting{
 			Name:    "Google 官方",
 			BaseURL: "https://dl.google.com/android/repository/",

@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"go-apksigner-gui/internal/i18n"
 )
 
 // ErrZipSlip 表示压缩包内存在越界路径，已被拒绝解压。
-var ErrZipSlip = fmt.Errorf("fileutil: 压缩包包含非法路径")
+var ErrZipSlip = fmt.Errorf("%s", i18n.T("fileutil.err.zipSlip"))
 
 // ExtractOptions 解压选项。
 type ExtractOptions struct {
@@ -25,7 +27,7 @@ type ExtractOptions struct {
 func Extract(zipPath, dest string, opt ExtractOptions) (int, error) {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return 0, fmt.Errorf("打开压缩包失败: %w", err)
+		return 0, fmt.Errorf("%s: %w", i18n.T("fileutil.err.openArchive"), err)
 	}
 	defer r.Close()
 
@@ -67,7 +69,7 @@ func Extract(zipPath, dest string, opt ExtractOptions) (int, error) {
 func writeEntry(f *zip.File, target string) error {
 	rc, err := f.Open()
 	if err != nil {
-		return fmt.Errorf("读取条目 %s 失败: %w", f.Name, err)
+		return fmt.Errorf("%s: %w", i18n.T("fileutil.err.readEntry", f.Name), err)
 	}
 	defer rc.Close()
 
@@ -77,7 +79,7 @@ func writeEntry(f *zip.File, target string) error {
 	}
 	if _, err := io.Copy(out, rc); err != nil {
 		out.Close()
-		return fmt.Errorf("写入 %s 失败: %w", target, err)
+		return fmt.Errorf("%s: %w", i18n.T("fileutil.err.write", target), err)
 	}
 	return out.Close()
 }
@@ -113,7 +115,7 @@ func safeJoin(dest, name string) (string, error) {
 func RemoveEntries(src, dst string, prefixes []string) (int, error) {
 	r, err := zip.OpenReader(src)
 	if err != nil {
-		return 0, fmt.Errorf("打开 %s 失败: %w", src, err)
+		return 0, fmt.Errorf("%s: %w", i18n.T("fileutil.err.openFile", src), err)
 	}
 	defer r.Close()
 
@@ -163,7 +165,7 @@ func copyEntry(w *zip.Writer, f *zip.File) error {
 	}
 	rc, err := f.Open()
 	if err != nil {
-		return fmt.Errorf("读取条目 %s 失败: %w", f.Name, err)
+		return fmt.Errorf("%s: %w", i18n.T("fileutil.err.readEntry", f.Name), err)
 	}
 	defer rc.Close()
 

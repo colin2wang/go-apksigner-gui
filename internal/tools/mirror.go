@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go-apksigner-gui/internal/dto"
+	"go-apksigner-gui/internal/i18n"
 )
 
 // Mirrors 内置镜像源清单（含国内可用站点）。
@@ -55,7 +56,7 @@ func NewHTTPClient(proxy dto.ProxyConfig, timeout time.Duration) (*http.Client, 
 			proxyURL.User = url.UserPassword(proxy.Username, proxy.Password)
 		}
 		if _, err := url.Parse(proxyURL.String()); err != nil {
-			return nil, fmt.Errorf("代理地址无效: %w", err)
+			return nil, fmt.Errorf("%s: %w", i18n.T("tools.err.proxyAddrInvalid"), err)
 		}
 		transport.Proxy = http.ProxyURL(proxyURL)
 	}

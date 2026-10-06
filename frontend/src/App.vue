@@ -6,6 +6,7 @@ import SignView from './views/SignView.vue'
 import ApkInfoView from './views/ApkInfoView.vue'
 import SettingsView from './views/SettingsView.vue'
 import { clearLogs, missingTools, notify, state } from './stores/app'
+import { t } from './i18n'
 
 type TabKey = 'tools' | 'cert' | 'sign' | 'apk' | 'settings'
 
@@ -16,13 +17,13 @@ interface NavItem {
   icon: string
 }
 
-const navItems: NavItem[] = [
-  { key: 'tools', label: '工具链', desc: 'build-tools', icon: 'M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z' },
-  { key: 'cert', label: '证书管理', desc: 'keytool', icon: 'M7 4h10v16H7zM9 8h6M9 12h6' },
-  { key: 'sign', label: '对齐签名', desc: 'apksigner', icon: 'M5 12l5 5L19 7' },
-  { key: 'apk', label: 'APK 信息', desc: 'aapt2', icon: 'M6 3h9l4 4v14H6zM15 3v4h4' },
-  { key: 'settings', label: '设置', desc: 'preferences', icon: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.2 3H9.8l-.4 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 000 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.7h4.4l.4-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.06-.4.1-.8.1-1.2z' },
-]
+const navItems = computed<NavItem[]>(() => [
+  { key: 'tools', label: t('nav.tools'), desc: 'build-tools', icon: 'M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z' },
+  { key: 'cert', label: t('nav.cert'), desc: 'keytool', icon: 'M7 4h10v16H7zM9 8h6M9 12h6' },
+  { key: 'sign', label: t('nav.sign'), desc: 'apksigner', icon: 'M5 12l5 5L19 7' },
+  { key: 'apk', label: t('nav.apk'), desc: 'aapt2', icon: 'M6 3h9l4 4v14H6zM15 3v4h4' },
+  { key: 'settings', label: t('nav.settings'), desc: 'preferences', icon: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.2 3H9.8l-.4 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 000 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.7h4.4l.4-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.06-.4.1-.8.1-1.2z' },
+])
 
 const views: Record<TabKey, Component> = {
   tools: ToolsView,
@@ -72,7 +73,7 @@ function timeText(ts: number) {
 
 function handleClear() {
   clearLogs()
-  notify('info', '日志已清空')
+  notify('info', t('app.logsCleared'))
 }
 </script>
 
@@ -97,12 +98,12 @@ function handleClear() {
 
       <div class="flex items-center gap-2">
         <span v-if="running" class="chip bg-brand/15 text-brand-light">
-          <span class="h-2 w-2 animate-ping rounded-full bg-brand"></span> 任务进行中
+          <span class="h-2 w-2 animate-ping rounded-full bg-brand"></span> {{ t('app.taskRunning') }}
         </span>
         <span v-if="missingTools.length" class="chip bg-amber-400/15 text-amber-300">
-          缺失 {{ missingTools.length }} 个工具
+          {{ t('app.missingTools', missingTools.length) }}
         </span>
-        <span v-else class="chip bg-brand/15 text-brand-light">工具链就绪</span>
+        <span v-else class="chip bg-brand/15 text-brand-light">{{ t('app.toolsReady') }}</span>
       </div>
     </header>
 
@@ -123,7 +124,7 @@ function handleClear() {
         </button>
 
         <div class="mt-6 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-xs text-muted">
-          <p class="mb-2 font-medium text-slate-200">工具目录</p>
+          <p class="mb-2 font-medium text-slate-200">{{ t('app.toolsDir') }}</p>
           <p class="kbd-text">{{ state.meta?.toolsDir }}</p>
         </div>
       </nav>
@@ -138,15 +139,15 @@ function handleClear() {
     <footer class="border-t border-white/5 bg-ink-900/60 backdrop-blur-xl">
       <div class="flex items-center justify-between px-6 py-2">
         <button class="btn-ghost !py-1 !text-xs" @click="logOpen = !logOpen">
-          <span>{{ logOpen ? '收起日志' : '展开日志' }}</span>
-          <span class="text-[10px] text-muted">{{ state.logs.length }} 行</span>
+          <span>{{ logOpen ? t('app.collapseLog') : t('app.expandLog') }}</span>
+          <span class="text-[10px] text-muted">{{ state.logs.length }} {{ t('app.logLines') }}</span>
         </button>
         <div class="flex items-center gap-3 text-xs text-muted">
           <label class="flex items-center gap-1.5">
             <input v-model="autoScroll" type="checkbox" class="accent-brand" />
-            自动滚动
+            {{ t('app.autoScroll') }}
           </label>
-          <button class="rounded-lg px-2 py-1 transition hover:bg-white/5" @click="handleClear">清空</button>
+          <button class="rounded-lg px-2 py-1 transition hover:bg-white/5" @click="handleClear">{{ t('app.clear') }}</button>
         </div>
       </div>
       <div
@@ -159,7 +160,7 @@ function handleClear() {
           <span class="w-16 shrink-0" :class="levelClass(line.level)">{{ line.level }}</span>
           <span class="whitespace-pre-wrap break-all text-slate-300">{{ line.text }}</span>
         </p>
-        <p v-if="!state.logs.length" class="text-slate-500">暂无日志输出</p>
+        <p v-if="!state.logs.length" class="text-slate-500">{{ t('app.noLogs') }}</p>
       </div>
     </footer>
   </div>

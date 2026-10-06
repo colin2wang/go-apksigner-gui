@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"go-apksigner-gui/internal/dto"
+	"go-apksigner-gui/internal/i18n"
 )
 
 // 二进制 XML 中的 chunk 类型。
@@ -24,7 +25,7 @@ const (
 const maxManifestSize = 8 << 20
 
 // ErrManifestMissing APK 中没有 AndroidManifest.xml。
-var ErrManifestMissing = errors.New("apkinfo: APK 中未找到 AndroidManifest.xml")
+var ErrManifestMissing = errors.New(i18n.T("apkinfo.err.manifestMissing"))
 
 // manifestAttr 记录从 AXML 中解析出的属性。
 type manifestAttr struct {
@@ -48,7 +49,7 @@ func ParseManifest(apkPath string) (dto.APKInfo, error) {
 func readManifest(apkPath string) ([]byte, error) {
 	r, err := zip.OpenReader(apkPath)
 	if err != nil {
-		return nil, fmt.Errorf("打开 APK 失败: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.T("apkinfo.err.openApk"), err)
 	}
 	defer r.Close()
 
@@ -58,7 +59,7 @@ func readManifest(apkPath string) ([]byte, error) {
 		}
 		rc, err := f.Open()
 		if err != nil {
-			return nil, fmt.Errorf("读取 %s 失败: %w", f.Name, err)
+			return nil, fmt.Errorf("%s: %w", i18n.T("apkinfo.err.readEntry", f.Name), err)
 		}
 		defer rc.Close()
 		limit := f.UncompressedSize64
@@ -79,10 +80,10 @@ func readManifest(apkPath string) ([]byte, error) {
 func ParseAXML(data []byte) (dto.APKInfo, error) {
 	info := dto.APKInfo{}
 	if len(data) < 8 {
-		return info, errors.New("apkinfo: manifest 数据过短")
+		return info, errors.New(i18n.T("apkinfo.err.manifestShort"))
 	}
 	if binary.LittleEndian.Uint16(data[0:2]) != 0x0003 {
-		return info, errors.New("apkinfo: 不是合法的二进制 XML 文件")
+		return info, errors.New(i18n.T("apkinfo.err.notBinaryXML"))
 	}
 	total := int(binary.LittleEndian.Uint32(data[4:8]))
 	if total < 8 || total > len(data) {
@@ -143,7 +144,7 @@ func ParseAXML(data []byte) (dto.APKInfo, error) {
 		}
 	}
 	if info.PackageName == "" {
-		return info, errors.New("apkinfo: manifest 中未找到 package 属性")
+		return info, errors.New(i18n.T("apkinfo.err.noPackage"))
 	}
 	return info, nil
 }
@@ -203,7 +204,7 @@ func parseAttributes(chunk []byte, headerSize int, pool []string) []manifestAttr
 // parseStringPool 解析字符串池 chunk。
 func parseStringPool(chunk []byte) ([]string, error) {
 	if len(chunk) < 28 {
-		return nil, errors.New("apkinfo: 字符串池过短")
+		return nil, errors.New(i18n.T("apkinfo.err.stringPoolShort"))
 	}
 	// headerSize := binary.LittleEndian.Uint16(chunk[2:4])
 	stringCount := int(binary.LittleEndian.Uint32(chunk[8:12]))

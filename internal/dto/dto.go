@@ -198,6 +198,7 @@ type AppSettings struct {
 	Mirror       MirrorSource      `json:"mirror"`
 	Proxy        ProxyConfig       `json:"proxy"`
 	AndroidSdk   string            `json:"androidSdk"`
+	Language     string            `json:"language"`
 	Tools        map[string]string `json:"tools,omitempty"`
 }
 

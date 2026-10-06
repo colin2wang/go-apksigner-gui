@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go-apksigner-gui/internal/dto"
+	"go-apksigner-gui/internal/i18n"
 )
 
 // DefaultProxyTestTarget 代理连通性测试的默认目标（Google 主页）。
@@ -34,7 +35,7 @@ func TestProxyConnection(proxy dto.ProxyConfig, target string, timeout time.Dura
 
 	client, err := NewHTTPClient(test, 20*time.Second)
 	if err != nil {
-		return dto.TaskResult{Success: false, Message: "代理配置无效: " + err.Error(), Detail: err.Error()}
+		return dto.TaskResult{Success: false, Message: i18n.T("tools.proxy.invalid", err.Error()), Detail: err.Error()}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -49,9 +50,9 @@ func TestProxyConnection(proxy dto.ProxyConfig, target string, timeout time.Dura
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
-		reason := "无法通过该代理访问目标"
+		reason := i18n.T("tools.proxy.unreachable")
 		if !usingProxy {
-			reason = "未配置代理，直连目标失败"
+			reason = i18n.T("tools.proxy.directFail")
 		}
 		return dto.TaskResult{
 			Success: false,
@@ -67,17 +68,17 @@ func TestProxyConnection(proxy dto.ProxyConfig, target string, timeout time.Dura
 	if resp.StatusCode >= 400 {
 		return dto.TaskResult{
 			Success: false,
-			Message: fmt.Sprintf("已连接代理，但目标返回 HTTP %d", resp.StatusCode),
+			Message: i18n.T("tools.proxy.httpStatus", resp.StatusCode),
 			Detail:  resp.Status,
 		}
 	}
 
-	scope := "代理连接成功"
+	scope := i18n.T("tools.proxy.viaProxy")
 	if !usingProxy {
-		scope = "直连成功"
+		scope = i18n.T("tools.proxy.direct")
 	}
 	return dto.TaskResult{
 		Success: true,
-		Message: fmt.Sprintf("%s，%s 返回 HTTP %d（耗时 %dms）", scope, target, resp.StatusCode, elapsed.Milliseconds()),
+		Message: i18n.T("tools.proxy.result", scope, target, resp.StatusCode, elapsed.Milliseconds()),
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"go-apksigner-gui/internal/config"
 	"go-apksigner-gui/internal/config/appcfg"
 	"go-apksigner-gui/internal/dto"
+	"go-apksigner-gui/internal/i18n"
 	"go-apksigner-gui/internal/logger"
 	"go-apksigner-gui/internal/secure"
 	"go-apksigner-gui/internal/signer"
@@ -80,18 +81,19 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	_ = logger.Init(config.Dir())
-	logger.Info("应用启动", "version", appVersion)
+	i18n.SetLocale(a.cfg.Snapshot().Language)
+	logger.Info(i18n.T("app.log.startup"), "version", appVersion)
 
 	go func() {
 		statuses := a.toolMgr.DetectAll()
-		logger.Info("工具链探测完成")
+		logger.Info(i18n.T("app.log.toolsDetected"))
 		runtime.EventsEmit(a.ctx, "tools:changed", statuses)
 	}()
 }
 
 // shutdown 生命周期钩子：持久化配置。
 func (a *App) shutdown(ctx context.Context) {
-	logger.Info("应用退出")
+	logger.Info(i18n.T("app.log.shutdown"))
 	if err := a.cfg.Save(); err != nil {
 		logger.Error("保存配置失败", "error", err.Error())
 	}
@@ -144,6 +146,7 @@ func (a *App) GetSettings() dto.AppSettings {
 		Mirror:       mirror,
 		Proxy:        proxy,
 		AndroidSdk:   s.AndroidSDK,
+		Language:     s.Language,
 		Tools:        s.Tools,
 	}
 }
@@ -171,10 +174,12 @@ func (a *App) SaveSettings(settings dto.AppSettings) error {
 		if settings.Tools != nil {
 			cfg.Tools = settings.Tools
 		}
+		cfg.Language = settings.Language
 	})
 	if err != nil {
 		return fmt.Errorf("保存设置失败: %w", err)
 	}
+	i18n.SetLocale(settings.Language)
 	a.toolMgr.SetMirror(tools.FindMirror(settings.Mirror.BaseURL))
 	if perr := a.toolMgr.SetProxy(settings.Proxy); perr != nil {
 		return perr
@@ -183,9 +188,17 @@ func (a *App) SaveSettings(settings dto.AppSettings) error {
 		a.toolMgr.SetOverride(name, path)
 	}
 	a.toolMgr.SetSdkPath(settings.AndroidSdk)
-	logger.Info("设置已保存", "mirror", settings.Mirror.Name, "proxy", settings.Proxy.Enabled)
+	logger.Info(i18n.T("app.log.settingsSaved"), "mirror", settings.Mirror.Name, "proxy", settings.Proxy.Enabled, "language", settings.Language)
 	a.emit("tools:changed", a.toolMgr.DetectAll())
 	return nil
+}
+
+// SetLanguage 即时切换后端文案语言并持久化（供前端切语言时调用，无需回传整个设置）。
+func (a *App) SetLanguage(language string) error {
+	i18n.SetLocale(language)
+	return a.cfg.Update(func(cfg *config.Settings) {
+		cfg.Language = i18n.Locale()
+	})
 }
 
 // TestProxy 测试代理连通性：通过配置的代理访问 Google 主页，不影响已保存配置。
@@ -264,13 +277,13 @@ func (a *App) InstallBuildTools(version string) dto.TaskResult {
 		a.emit("download:progress", p)
 	})
 	if err != nil {
-		logger.Error("安装 build-tools 失败", "version", version, "error", err.Error())
+		logger.Error(i18n.T("tools.log.installFail"), "version", version, "error", err.Error())
 		return dto.TaskResult{Success: false, Message: err.Error()}
 	}
 	if result.Success {
-		logger.Info("build-tools 安装完成", "version", version)
+		logger.Info(i18n.T("tools.log.installDone"), "version", version)
 	} else {
-		logger.Error("安装未完成", "version", version, "message", result.Message)
+		logger.Error(i18n.T("tools.log.installIncomplete"), "version", version, "message", result.Message)
 	}
 	return result
 }
@@ -278,7 +291,7 @@ func (a *App) InstallBuildTools(version string) dto.TaskResult {
 // CancelInstall 取消正在进行的下载。
 func (a *App) CancelInstall(version string) {
 	a.toolMgr.CancelDownload(version)
-	logger.Warn("已取消下载", "version", version)
+	logger.Warn(i18n.T("tools.log.cancelDownload"), "version", version)
 }
 
 // CleanTemp 清理下载缓存与临时文件。
@@ -286,7 +299,7 @@ func (a *App) CleanTemp() dto.TaskResult {
 	if err := a.toolMgr.CleanTemp(); err != nil {
 		return dto.TaskResult{Success: false, Message: err.Error()}
 	}
-	return dto.TaskResult{Success: true, Message: "临时文件已清理"}
+	return dto.TaskResult{Success: true, Message: i18n.T("app.msg.cleanTempDone")}
 }
 
 // ---------------------------------------------------------------- 证书管理
@@ -301,8 +314,8 @@ func (a *App) GenerateKeystore(req dto.KeystoreRequest) dto.TaskResult {
 	if req.StorePass != "" {
 		a.rememberKeystore(req.OutputPath, req.Cert.Alias)
 	}
-	logger.Info("密钥库生成成功", "path", req.OutputPath)
-	return dto.TaskResult{Success: true, Message: fmt.Sprintf("已生成密钥库: %s", req.OutputPath), Detail: out}
+	logger.Info(i18n.T("cert.msg.genDone", req.OutputPath), "path", req.OutputPath)
+	return dto.TaskResult{Success: true, Message: i18n.T("cert.msg.genDone", req.OutputPath), Detail: out}
 }
 
 // ListKeystore 查看密钥库详情。
@@ -331,7 +344,7 @@ func (a *App) ExportCertificate(keystorePath, storePass, alias, outputPath strin
 	if err != nil {
 		return dto.TaskResult{Success: false, Message: err.Error(), Detail: out}
 	}
-	return dto.TaskResult{Success: true, Message: fmt.Sprintf("证书已导出到: %s", outputPath), Detail: out}
+	return dto.TaskResult{Success: true, Message: i18n.T("cert.msg.exportDone", outputPath), Detail: out}
 }
 
 // ConvertKeystore 密钥库格式转换。
@@ -340,7 +353,7 @@ func (a *App) ConvertKeystore(srcPath, srcPass, dstPath, dstPass, dstType string
 	if err != nil {
 		return dto.TaskResult{Success: false, Message: err.Error(), Detail: out}
 	}
-	return dto.TaskResult{Success: true, Message: fmt.Sprintf("已转换并保存为 %s: %s", dstType, dstPath), Detail: out}
+	return dto.TaskResult{Success: true, Message: i18n.T("cert.msg.convertDone", dstType, dstPath), Detail: out}
 }
 
 // DeleteAlias 删除密钥库中的别名。
@@ -349,7 +362,7 @@ func (a *App) DeleteAlias(path, storePass, alias string) dto.TaskResult {
 	if err != nil {
 		return dto.TaskResult{Success: false, Message: err.Error(), Detail: out}
 	}
-	return dto.TaskResult{Success: true, Message: fmt.Sprintf("已删除别名: %s", alias), Detail: out}
+	return dto.TaskResult{Success: true, Message: i18n.T("cert.msg.deleteDone", alias), Detail: out}
 }
 
 // rememberKeystore 记录最近使用的密钥库与别名。
@@ -428,10 +441,10 @@ func (a *App) ListKeystoreDir() ([]dto.KeystoreFile, error) {
 // ImportKeystore 将外部密钥库复制进 keystores 目录（保留原文件），命名为 imported_<时间>.<原扩展名>。
 func (a *App) ImportKeystore(srcPath, storePass string) dto.TaskResult {
 	if srcPath == "" {
-		return dto.TaskResult{Success: false, Message: "请选择要导入的密钥库文件"}
+		return dto.TaskResult{Success: false, Message: i18n.T("cert.err.chooseImport")}
 	}
 	if _, err := a.certMgr.List(context.Background(), srcPath, storePass); err != nil {
-		return dto.TaskResult{Success: false, Message: "密钥库校验失败: " + err.Error()}
+		return dto.TaskResult{Success: false, Message: i18n.T("cert.err.importVerify") + ": " + err.Error()}
 	}
 	dir, err := keystoreDirPath()
 	if err != nil {
@@ -443,13 +456,13 @@ func (a *App) ImportKeystore(srcPath, storePass string) dto.TaskResult {
 	}
 	dst := filepath.Join(dir, "imported_"+time.Now().Format("20060102_150405")+ext)
 	if _, err := os.Stat(dst); err == nil {
-		return dto.TaskResult{Success: false, Message: "目标文件已存在: " + dst}
+		return dto.TaskResult{Success: false, Message: i18n.T("cert.err.importExists", dst)}
 	}
 	if err := copyFile(srcPath, dst); err != nil {
-		return dto.TaskResult{Success: false, Message: "复制失败: " + err.Error()}
+		return dto.TaskResult{Success: false, Message: i18n.T("cert.err.importCopy") + ": " + err.Error()}
 	}
 	a.rememberKeystore(dst, "")
-	return dto.TaskResult{Success: true, Message: fmt.Sprintf("已导入到: %s", dst)}
+	return dto.TaskResult{Success: true, Message: i18n.T("cert.msg.importDone", dst)}
 }
 
 // GetSavedPassword 返回指定密钥库保存的密码（已解密），未保存时返回空串。
@@ -469,7 +482,7 @@ func (a *App) GetSavedPassword(path string) string {
 // SavePassword 加密保存指定密钥库的密码（password 为空则清除）。
 func (a *App) SavePassword(path, password string) error {
 	if path == "" {
-		return errors.New("路径为空")
+		return errors.New(i18n.T("app.err.emptyPath"))
 	}
 	return a.cfg.Update(func(cfg *config.Settings) {
 		if cfg.SavedPasswords == nil {
@@ -525,11 +538,11 @@ func (a *App) SignAPK(opts dto.SignOptions) dto.SignResult {
 	}
 	result, err := a.signMgr.Sign(context.Background(), opts, cb)
 	if err != nil {
-		logger.Error("签名失败", "error", logger.Mask(err.Error(), opts.StorePass, opts.KeyPass))
+		logger.Error(i18n.T("sign.log.signFail"), "error", logger.Mask(err.Error(), opts.StorePass, opts.KeyPass))
 		return dto.SignResult{Success: false, Message: err.Error()}
 	}
 	if result.Success {
-		logger.Info("签名完成", "output", result.OutputPath, "schemes", result.SignVersion)
+		logger.Info(i18n.T("sign.log.signDone"), "output", result.OutputPath, "schemes", result.SignVersion)
 		_ = a.cfg.Update(func(cfg *config.Settings) {
 			cfg.LastApk = opts.InputAPK
 			cfg.LastKeystore = opts.Keystore
@@ -558,7 +571,7 @@ func (a *App) ZipAlign(inputAPK, outputAPK string) dto.TaskResult {
 	if err != nil {
 		return dto.TaskResult{Success: false, Message: err.Error(), Detail: out}
 	}
-	return dto.TaskResult{Success: true, Message: fmt.Sprintf("已生成对齐文件: %s", outputAPK), Detail: out}
+	return dto.TaskResult{Success: true, Message: i18n.T("sign.msg.zipalignDone", outputAPK), Detail: out}
 }
 
 // ---------------------------------------------------------------- APK 信息
@@ -567,7 +580,7 @@ func (a *App) ZipAlign(inputAPK, outputAPK string) dto.TaskResult {
 func (a *App) ParseAPK(apkPath string) dto.APKInfo {
 	info, err := a.apkParser.Parse(context.Background(), apkPath)
 	if err != nil {
-		logger.Warn("解析 APK 失败", "path", apkPath, "error", err.Error())
+		logger.Warn(i18n.T("apkinfo.log.parseFail"), "path", apkPath, "error", err.Error())
 		info.Message = err.Error()
 	}
 	if apkPath != "" {

@@ -177,6 +177,7 @@ export interface AppSettings {
   mirror: MirrorSource
   proxy: ProxyConfig
   androidSdk: string
+  language?: string
   tools?: Record<string, string>
 }
 

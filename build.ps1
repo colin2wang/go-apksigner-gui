@@ -89,36 +89,20 @@ try {
         Write-Ok 'Frontend dependencies ready'
     }
 
-    # Build frontend assets unless skipped
-    if (-not $SkipFrontend) {
-        Write-Step 'Build frontend assets (pnpm run build -> frontend/dist)'
-        Push-Location (Join-Path $root 'frontend')
-        try {
-            # Call vite directly to skip pnpm's extra dependency status check
-            pnpm exec vite build
-            if ($LASTEXITCODE -ne 0) {
-                Write-Warn 'pnpm exec vite build failed, fallback to pnpm run build'
-                pnpm run build
-                if ($LASTEXITCODE -ne 0) { Write-Fail 'Frontend build failed'; exit 1 }
-            }
-        } finally { Pop-Location }
-        Write-Ok 'Frontend artifacts generated'
-    }
-
-    # Verify frontend dist output exists for go:embed
-    $distDir = Join-Path $root 'frontend\dist'
-    if (-not (Test-Path (Join-Path $distDir 'index.html'))) {
-        Write-Fail "Frontend artifact $distDir\index.html not found. Go //go:embed cannot compile. Remove -SkipFrontend and retry."
-        exit 1
-    }
-
-    Write-Step 'Generate Wails frontend-backend bindings'
-    wails generate module
-    if ($LASTEXITCODE -ne 0) { Write-Warn 'Binding generation failed, will continue compilation (run wails generate module manually if bindings missing)' }
+    # Wails (v2.16) has no standalone `wails generate bindings` command; the
+    # Go<->frontend bindings are regenerated automatically by `wails build`.
+    # Therefore we let `wails build` (below) generate the bindings AND build the
+    # frontend itself (i.e. WITHOUT -s). This guarantees the embedded
+    # frontend/dist always contains the latest backend methods such as
+    # SetLanguage, so in-app language switching works at runtime. Pass
+    # -SkipFrontend to reuse an already-built dist instead.
 
     Write-Step 'Compile desktop application (wails build)'
-    # -s: skip frontend build inside wails (dist already produced above)
-    $buildArgs = @('build', '-s', '-ldflags', '-s -w')
+    # Build the frontend inside wails: it regenerates bindings first, then builds
+    # the frontend, so the embedded dist reflects the latest backend methods.
+    # -SkipFrontend reuses an already-built dist (skips the internal frontend build).
+    $buildArgs = @('build', '-ldflags', '-s -w')
+    if ($SkipFrontend) { $buildArgs += '-s' }
     if ($Package) {
         if (Get-Command makensis -ErrorAction SilentlyContinue) {
             Write-Ok 'NSIS detected, installer will be generated'

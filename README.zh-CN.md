@@ -1,5 +1,7 @@
 # APK Signer Studio（go-apksigner-gui）
 
+[English Version](README.md)
+
 用桌面 GUI 包装 Google `apksigner` 工具链，让使用者无需记忆命令行即可完成
 「下载工具 → 生成/查看证书 → 对齐 → 签名 → 验证」的完整流程。界面为中文，
 主窗口单页多模块切换，所有长耗时操作均有实时进度与日志输出。
@@ -8,7 +10,17 @@
 - 前端：Vue 3 + TypeScript + Vite + TailwindCSS + TDesign，包管理器 **pnpm**
 - 目标平台：Windows（逻辑已做跨平台处理，Linux / macOS 亦可运行）
 
-## 一、功能一览
+## 一、界面预览
+
+| 工具链 | 证书 |
+| --- | --- |
+| ![工具链页面：自动探测 apksigner / zipalign / aapt2 / keytool / sdkmanager，显示版本与路径](docs/images/screenshot-toolchain.png) | ![证书页面：密钥库目录，点击密钥库并输入密码即可查看详情](docs/images/screenshot-certificates.png) |
+
+| 签名 | 设置 |
+| --- | --- |
+| ![签名页面：选择待签名 APK、输出路径、密钥库与别名](docs/images/screenshot-align-sign.png) | ![设置页面：工具目录、手工指定工具路径、界面语言等](docs/images/screenshot-settings.png) |
+
+## 二、功能一览
 
 | 模块 | 能力 |
 | --- | --- |
@@ -18,7 +30,7 @@
 | APK 信息 | 读取包名、版本名/版本号、minSdk/targetSdk、文件大小、是否已签名（优先 aapt2，缺失时纯 Go 解析兜底） |
 | 设置 | 工具目录、手工指定工具路径、镜像源/代理持久化、默认签名方案、一键清理临时文件 |
 
-## 二、环境依赖
+## 三、环境依赖
 
 | 工具 | 用途 | 说明 |
 | --- | --- | --- |
@@ -30,7 +42,7 @@
 
 > Windows 下若尚未安装 WebView2 运行时，首次运行 exe 时 Wails 会引导安装。
 
-## 三、一键构建
+## 四、一键构建
 
 `.\build.ps1` 串联：安装 Go 工具链（按需）→ pnpm 安装前端依赖 → 构建前端 →
 生成 Wails 绑定 → `wails build`（默认已用 `-s` 跳过内置前端构建，避免重复）。
@@ -63,7 +75,7 @@ wails build -s
 > pnpm 11+ 默认禁用依赖构建脚本，esbuild 需要 postinstall 生成平台二进制，
 > 因此安装时使用 `pnpm install --allow-build esbuild`（见 `frontend/pnpm-workspace.yaml`）。
 
-## 四、开发调试
+## 五、开发调试
 
 ```powershell
 # 同时启动前端热更新与桌面窗口（需要已生成 wailsjs 绑定）
@@ -77,7 +89,7 @@ cd frontend
 pnpm exec vite   # 默认 http://localhost:5173
 ```
 
-## 五、首次使用流程
+## 六、首次使用流程
 
 1. 打开应用，进入「工具链」页：等待工具探测完成。若 `apksigner`/`zipalign`/`aapt2`
    缺失，选择国内镜像源（如腾讯云），点击「刷新版本列表」后安装一个 build-tools 版本
@@ -89,7 +101,7 @@ pnpm exec vite   # 默认 http://localhost:5173
    建议保留「签名前先 zipalign」。点击「开始签名」。完成后自动验证并显示证书摘要。
 5. 底部日志抽屉实时输出各步骤进度，可清空、暂停自动滚动。
 
-## 六、目录结构
+## 七、目录结构
 
 ```
 go-apksigner-gui/
@@ -111,7 +123,7 @@ go-apksigner-gui/
 
 `frontend/wailsjs/` 由 `wails generate module` 自动生成，请勿手动修改。
 
-## 七、测试
+## 八、测试
 
 核心纯逻辑（不依赖外部进程）均有单元测试，稳定可重复执行：
 
@@ -126,7 +138,7 @@ go test ./internal/...
 生成测试密钥库 → 对齐 → 签名 → 验证，README 各模块说明与其等价命令行一一对应，
 便于交叉验证。
 
-## 八、常见问题
+## 九、常见问题
 
 - **下载 build-tools 很慢 / 失败**：在「设置」页切换镜像源（腾讯云/清华），或配置 HTTP/SOCKS5 代理。
 - **aapt2 缺失导致 APK 信息解析不全**：工具会自动降级为内置 AXML 解析，仅能回填基础字段，建议安装 build-tools。

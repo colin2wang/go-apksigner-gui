@@ -32,6 +32,7 @@ export const api = {
   getMirrors: () => bindings.GetMirrors() as unknown as Promise<MirrorSource[]>,
   getSettings: () => bindings.GetSettings() as unknown as Promise<AppSettings>,
   saveSettings: (settings: AppSettings) => bindings.SaveSettings(settings as never) as unknown as Promise<void>,
+  setLanguage: (lang: string) => (bindings as Record<string, (l: string) => Promise<void>>).SetLanguage(lang),
   recentLogs: (n: number) => bindings.RecentLogs(n) as unknown as Promise<LogEntry[]>,
 
   selectOpenFile: (filter?: string) => bindings.SelectOpenFile(filter ?? ''),

@@ -17,6 +17,7 @@ import (
 	"go-apksigner-gui/internal/dto"
 	"go-apksigner-gui/internal/executor"
 	"go-apksigner-gui/internal/fileutil"
+	"go-apksigner-gui/internal/i18n"
 )
 
 // Manager 工具链门面：探测、版本索引、下载安装、临时目录清理。
@@ -156,10 +157,10 @@ func (m *Manager) Tool(name string) (Tool, error) {
 			if t.Available() {
 				return t, nil
 			}
-			return Tool{}, fmt.Errorf("工具 %s 不可用，请先在工具链页面安装 build-tools", name)
+			return Tool{}, fmt.Errorf("%s", i18n.T("tools.err.toolUnavailable", name))
 		}
 	}
-	return Tool{}, fmt.Errorf("未知工具: %s", name)
+	return Tool{}, fmt.Errorf("%s", i18n.T("tools.err.unknownTool", name))
 }
 
 // MustTool 返回工具，不可用时返回错误（供流水线使用）。
@@ -169,7 +170,7 @@ func (m *Manager) MustTool(name string) (Tool, error) {
 		return Tool{}, err
 	}
 	if !t.Available() {
-		return Tool{}, fmt.Errorf("工具 %s 不可用，请先在工具链页面安装 build-tools 或手工指定路径", name)
+		return Tool{}, fmt.Errorf("%s", i18n.T("tools.err.toolUnavailable2", name))
 	}
 	return t, nil
 }
@@ -231,7 +232,7 @@ func fetchBytes(ctx context.Context, client *http.Client, url string, timeout ti
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, url)
+		return nil, fmt.Errorf("%s", i18n.T("tools.err.http", resp.StatusCode, url))
 	}
 	return io.ReadAll(resp.Body)
 }
@@ -258,7 +259,7 @@ func sdkManagerPath(root string) string {
 // 若 SDK 根目录下尚未就绪 sdkmanager，会自动下载 command-line tools 并按 latest 结构解压。
 func (m *Manager) InstallViaSdkManager(ctx context.Context, version string, on ProgressFunc) (dto.TaskResult, error) {
 	if version == "" {
-		return failedResult("未指定 build-tools 版本"), nil
+		return failedResult(i18n.T("tools.err.noVersion")), nil
 	}
 	root := m.sdkRoot()
 	if err := os.MkdirAll(root, 0o755); err != nil {
@@ -272,7 +273,7 @@ func (m *Manager) InstallViaSdkManager(ctx context.Context, version string, on P
 		m.clearCancel("install:" + version)
 	}()
 
-	emitProgress(on, "build-tools;"+version, 0, 0, "downloading", "准备安装环境")
+	emitProgress(on, "build-tools;"+version, 0, 0, "downloading", i18n.T("tools.status.prepare"))
 	sdkMgr, err := m.ensureSdkManager(ctx, root, on)
 	if err != nil {
 		emit(on, dto.Progress{Stage: "error", Message: err.Error()})
@@ -280,12 +281,12 @@ func (m *Manager) InstallViaSdkManager(ctx context.Context, version string, on P
 	}
 
 	if !javaAvailable() {
-		msg := "未检测到 Java/JDK，sdkmanager 无法运行。请先安装 JDK 并配置 JAVA_HOME 或将其加入 PATH"
+		msg := i18n.T("tools.err.javaMissing")
 		emit(on, dto.Progress{Stage: "error", Message: msg})
 		return failedResult(msg), nil
 	}
 
-	emitProgress(on, "build-tools;"+version, 0, 0, "downloading", "正在通过 sdkmanager 安装 "+version)
+	emitProgress(on, "build-tools;"+version, 0, 0, "downloading", i18n.T("tools.status.installVia", version))
 	cmd := exec.CommandContext(ctx, sdkMgr, "--sdk_root", root, "build-tools;"+version)
 	executor.HideWindow(cmd)
 	cmd.Env = m.sdkManagerEnv(root)
@@ -301,7 +302,7 @@ func (m *Manager) InstallViaSdkManager(ctx context.Context, version string, on P
 		}
 	}
 	if runErr != nil {
-		msg := fmt.Sprintf("sdkmanager 安装失败: %v", runErr)
+		msg := i18n.T("tools.err.sdkmgrInstallFail", runErr)
 		emit(on, dto.Progress{Stage: "error", Message: msg})
 		return failedResult(msg), nil
 	}
@@ -310,12 +311,12 @@ func (m *Manager) InstallViaSdkManager(ctx context.Context, version string, on P
 	m.cacheTool = nil
 	m.mu.Unlock()
 	statuses := m.DetectAll()
-	emit(on, dto.Progress{FileName: "build-tools;" + version, Stage: "done", Percent: 100, Message: "安装完成"})
+	emit(on, dto.Progress{FileName: "build-tools;" + version, Stage: "done", Percent: 100, Message: i18n.T("tools.status.installed")})
 	detail := fmt.Sprintf("SDK 根目录: %s\n", root)
 	for _, s := range statuses {
 		detail += fmt.Sprintf("%s: installed=%v path=%s version=%s\n", s.Name, s.Installed, s.Path, s.Version)
 	}
-	return dto.TaskResult{Success: true, Message: fmt.Sprintf("build-tools %s 安装完成", version), Detail: detail}, nil
+	return dto.TaskResult{Success: true, Message: i18n.T("tools.msg.installDone", version), Detail: detail}, nil
 }
 
 // sdkManagerEnv 构造 sdkmanager 运行环境变量，注入 SDK 根与代理（来自设置）。
@@ -344,7 +345,7 @@ func (m *Manager) ensureSdkManager(ctx context.Context, root string, on Progress
 	}
 	url := m.cfg.SdkManager.URLForOS(HostOS())
 	if url == "" {
-		return "", fmt.Errorf("未配置 sdkmanager 下载地址（请检查 app.yaml 的 sdkmanager.%sUrl）", HostOS())
+		return "", fmt.Errorf("%s", i18n.T("tools.err.noSdkMgrURL", HostOS()))
 	}
 	downloadDir := filepath.Join(m.toolsDir, "downloads")
 	if err := os.MkdirAll(downloadDir, 0o755); err != nil {
@@ -357,16 +358,16 @@ func (m *Manager) ensureSdkManager(ctx context.Context, root string, on Progress
 		URL:      url,
 		SHA256:   m.cfg.SdkManager.SHA256ForOS(HostOS()),
 	}
-	emitProgress(on, fileName, 0, v.Size, "downloading", "下载 command-line tools")
+	emitProgress(on, fileName, 0, v.Size, "downloading", i18n.T("tools.status.downloadCmdline"))
 	zipPath, err := Download(ctx, m.client, v, downloadDir, on)
 	if err != nil {
-		return "", fmt.Errorf("下载 command-line tools 失败: %w", err)
+		return "", fmt.Errorf("%s: %w", i18n.T("tools.err.downloadCmdlineFail"), err)
 	}
 	extractDir := filepath.Join(m.toolsDir, "tmp", "cmdline-tools-extract")
 	_ = os.RemoveAll(extractDir)
-	emitProgress(on, fileName, v.Size, v.Size, "extracting", "解压 command-line tools")
+	emitProgress(on, fileName, v.Size, v.Size, "extracting", i18n.T("tools.status.extractCmdline"))
 	if _, err := fileutil.Extract(zipPath, extractDir, fileutil.ExtractOptions{}); err != nil {
-		return "", fmt.Errorf("解压失败: %w", err)
+		return "", fmt.Errorf("%s: %w", i18n.T("tools.err.extractFail"), err)
 	}
 	// Google 压缩包顶层为 cmdline-tools/{bin,lib,...}，需移动到 cmdline-tools/latest 结构
 	src := filepath.Join(extractDir, "cmdline-tools")
@@ -379,14 +380,14 @@ func (m *Manager) ensureSdkManager(ctx context.Context, root string, on Progress
 	}
 	_ = os.RemoveAll(dst)
 	if err := os.Rename(src, dst); err != nil {
-		return "", fmt.Errorf("移动 sdkmanager 目录失败: %w", err)
+		return "", fmt.Errorf("%s: %w", i18n.T("tools.err.moveSdkMgrFail"), err)
 	}
 	_ = os.RemoveAll(extractDir)
 	makeExecutable(dst)
 	if p := sdkManagerPath(root); fileExists(p) {
 		return p, nil
 	}
-	return "", fmt.Errorf("sdkmanager 解压后未找到可执行文件: %s", sdkManagerPath(root))
+	return "", fmt.Errorf("%s", i18n.T("tools.err.sdkMgrNotFound", sdkManagerPath(root)))
 }
 
 // javaAvailable 检测系统是否具备运行 sdkmanager 所需的 Java。

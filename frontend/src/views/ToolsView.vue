@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { api } from '../api'
+import { t } from '../i18n'
 import { formatSize, loadVersions, notify, refreshTools, state } from '../stores/app'
 
 const selectedVersion = ref('')
@@ -9,25 +10,25 @@ const progress = computed(() => state.progress)
 const stageText = computed(() => {
   switch (state.progress?.stage) {
     case 'downloading':
-      return '下载中'
+      return t('tools.stage.downloading')
     case 'verifying':
-      return '完整性校验'
+      return t('tools.stage.verifying')
     case 'extracting':
-      return '解压安装'
+      return t('tools.stage.extracting')
     case 'done':
-      return '完成'
+      return t('tools.stage.done')
     case 'error':
-      return '失败'
+      return t('tools.stage.error')
     default:
-      return '待开始'
+      return t('tools.stage.idle')
   }
 })
 
 const toolIcons: Record<string, string> = {
-  apksigner: '签名',
-  zipalign: '对齐',
-  aapt2: '解析',
-  keytool: '证书',
+  apksigner: t('tools.icon.apksigner'),
+  zipalign: t('tools.icon.zipalign'),
+  aapt2: t('tools.icon.aapt2'),
+  keytool: t('tools.icon.keytool'),
 }
 
 async function refresh() {
@@ -35,16 +36,16 @@ async function refresh() {
   if (!selectedVersion.value && state.meta?.defaultBuildToolsVersion) {
     selectedVersion.value = state.meta.defaultBuildToolsVersion
   }
-  notify('info', `已获取 ${state.versions.length} 个可用版本`)
+  notify('info', t('tools.fetchedVersions', state.versions.length))
 }
 
 async function install(version: string) {
   if (!version) {
-    notify('warning', '请先选择一个版本')
+    notify('warning', t('tools.warn.noVersion'))
     return
   }
   state.installing = true
-  state.progress = { fileName: version, downloaded: 0, total: 0, percent: 0, stage: 'downloading', message: '准备下载' }
+  state.progress = { fileName: version, downloaded: 0, total: 0, percent: 0, stage: 'downloading', message: t('tools.prepareDownload') }
   try {
     const res = await api.installBuildTools(version)
     if (res.success) {
@@ -54,7 +55,7 @@ async function install(version: string) {
       notify('error', res.message)
     }
   } catch (err) {
-    notify('error', `安装失败: ${err}`)
+    notify('error', t('tools.err.install', String(err)))
   } finally {
     state.installing = false
   }
@@ -63,7 +64,7 @@ async function install(version: string) {
 function cancel() {
   if (!selectedVersion.value) return
   api.cancelInstall(selectedVersion.value)
-  notify('warning', '已发送取消请求')
+  notify('warning', t('tools.cancelSent'))
 }
 </script>
 
@@ -72,9 +73,9 @@ function cancel() {
     <section class="panel">
       <div class="panel-title">
         <span class="h-1.5 w-1.5 rounded-full bg-brand"></span>
-        工具状态
+        {{ t('tools.statusTitle') }}
         <span class="ml-auto text-xs font-normal text-muted">
-          {{ state.loadingTools ? '检测中…' : `已就绪 ${state.tools.filter((t) => t.installed).length}/${state.tools.length}` }}
+          {{ state.loadingTools ? t('tools.detecting') : t('tools.ready', state.tools.filter((tt) => tt.installed).length, state.tools.length) }}
         </span>
       </div>
 
@@ -91,13 +92,13 @@ function cancel() {
               class="chip"
               :class="tool.installed ? 'bg-brand/15 text-brand-light' : 'bg-red-500/15 text-red-300'"
             >
-              {{ tool.installed ? '可用' : '缺失' }}
+              {{ tool.installed ? t('tools.available') : t('tools.missing') }}
             </span>
           </div>
-          <p class="text-[11px] uppercase tracking-wider text-muted">{{ toolIcons[tool.name] ?? '工具' }}</p>
-          <p class="mt-2 truncate text-[11px] text-slate-400" :title="tool.path">{{ tool.path || '未找到可执行文件' }}</p>
+          <p class="text-[11px] uppercase tracking-wider text-muted">{{ toolIcons[tool.name] ?? t('tools.tool') }}</p>
+          <p class="mt-2 truncate text-[11px] text-slate-400" :title="tool.path">{{ tool.path || t('tools.noExec') }}</p>
           <p class="mt-1 text-[11px] text-slate-500">
-            {{ tool.version || '-' }} · 来源 {{ tool.source || '-' }}
+            {{ tool.version || '-' }} · {{ t('tools.source') }} {{ tool.source || '-' }}
           </p>
         </div>
       </div>
@@ -106,28 +107,28 @@ function cancel() {
     <section class="panel">
       <div class="panel-title">
         <span class="h-1.5 w-1.5 rounded-full bg-sky-400"></span>
-        下载 build-tools
+        {{ t('tools.downloadTitle') }}
         <div class="ml-auto flex items-center gap-2">
           <button class="btn-ghost !py-1.5 !text-xs" :disabled="state.loadingVersions" @click="refresh">
-            {{ state.loadingVersions ? '获取中…' : '刷新版本列表' }}
+            {{ state.loadingVersions ? t('tools.fetching') : t('tools.refreshVersions') }}
           </button>
         </div>
       </div>
 
       <p class="mb-3 text-xs text-muted">
-        当前镜像源：
-        <span class="text-brand-light">{{ state.settings.mirror?.name || '未设置' }}</span>
-        （可在「设置」页切换国内镜像与代理）
+        {{ t('tools.currentMirror') }}
+        <span class="text-brand-light">{{ state.settings.mirror?.name || t('common.notSet') }}</span>
+        {{ t('tools.mirrorHint') }}
       </p>
 
       <div class="max-h-72 overflow-y-auto rounded-xl border border-white/5">
         <table class="w-full text-sm">
           <thead class="sticky top-0 bg-ink-900/90 text-xs uppercase tracking-wider text-muted backdrop-blur">
             <tr>
-              <th class="px-4 py-2 text-left">版本</th>
-              <th class="px-4 py-2 text-left">文件名</th>
-              <th class="px-4 py-2 text-right">体积</th>
-              <th class="px-4 py-2 text-right">操作</th>
+              <th class="px-4 py-2 text-left">{{ t('tools.col.version') }}</th>
+              <th class="px-4 py-2 text-left">{{ t('tools.col.file') }}</th>
+              <th class="px-4 py-2 text-right">{{ t('tools.col.size') }}</th>
+              <th class="px-4 py-2 text-right">{{ t('tools.col.action') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -148,13 +149,13 @@ function cancel() {
                     install(v.version)
                   "
                 >
-                  安装
+                  {{ t('tools.installBtn') }}
                 </button>
               </td>
             </tr>
             <tr v-if="!state.versions.length">
               <td colspan="4" class="px-4 py-6 text-center text-xs text-muted">
-                暂无数据，点击「刷新版本列表」获取
+                {{ t('tools.noData') }}
               </td>
             </tr>
           </tbody>
@@ -178,7 +179,7 @@ function cancel() {
         </div>
         <div class="mt-2 flex items-center justify-between text-[11px] text-muted">
           <span>{{ formatSize(progress.downloaded) }} / {{ formatSize(progress.total) }}</span>
-          <button v-if="installing" class="btn-ghost !py-1 !text-[11px]" @click="cancel">取消下载</button>
+          <button v-if="installing" class="btn-ghost !py-1 !text-[11px]" @click="cancel">{{ t('tools.cancelDownload') }}</button>
         </div>
       </div>
     </section>
