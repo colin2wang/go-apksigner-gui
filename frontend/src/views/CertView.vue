@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, reactive } from 'vue'
 import { api } from '../api'
-import { notify, state } from '../stores/app'
+import { notify, state, formatSize, formatTime } from '../stores/app'
 import { t } from '../i18n'
 import { DialogPlugin } from 'tdesign-vue-next'
 import type { KeystoreInfo, KeystoreRequest, KeystoreFile } from '../api/types'
@@ -250,15 +250,16 @@ async function view(silent = false) {
   }
 }
 
-// autoView 路径与密码均非空时防抖自动校验并加载证书信息。
-let viewTimer: ReturnType<typeof setTimeout> | undefined
-watch([viewPath, viewPass], () => {
-  if (!viewPath.value || !viewPass.value || busy.value) return
-  if (viewTimer) clearTimeout(viewTimer)
-  viewTimer = setTimeout(() => {
-    view(true).catch(() => {})
-  }, 600)
+// autoView 密码与路径均非空时，在密码框失焦或按回车后自动校验并加载证书信息。
+// 不再使用输入防抖自动触发：错误密码会在每次停顿时反复拉起 keytool 子进程。
+watch([viewPath, viewPass], ([, pass], [, oldPass]) => {
+  if (pass && pass !== oldPass && info.value) info.value = null
 })
+
+// onViewPassBlur 密码框失焦时校验（仅在信息尚未加载时触发，避免重复请求）。
+function onViewPassBlur() {
+  if (!info.value && viewPass.value && viewPath.value) view().catch(() => {})
+}
 
 // deleteAlias 删除密钥库中的指定别名，操作前二次确认。
 async function deleteAlias(alias: string) {
@@ -334,15 +335,7 @@ onMounted(async () => {
   }
 })
 
-function fmtSize(n: number): string {
-  if (n < 1024) return n + ' B'
-  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'
-  return (n / 1024 / 1024).toFixed(2) + ' MB'
-}
-function fmtTime(ms: number): string {
-  if (!ms) return ''
-  return new Date(ms).toLocaleString()
-}
+// fmtSize/fmtTime 已下沉到 stores/app（formatSize/formatTime），此处直接复用。
 </script>
 
 <template>
@@ -383,7 +376,7 @@ function fmtTime(ms: number): string {
           @click="openHome(f)"
         >
           <p class="truncate font-mono text-sm text-brand-light" :title="f.path">{{ f.name }}</p>
-          <p class="mt-1 text-[11px] text-muted">{{ fmtSize(f.size) }} · {{ fmtTime(f.modTime) }}</p>
+          <p class="mt-1 text-[11px] text-muted">{{ formatSize(f.size) }} · {{ formatTime(f.modTime) }}</p>
         </button>
       </div>
     </section>
@@ -553,7 +546,7 @@ function fmtTime(ms: number): string {
         <div>
           <label class="field-label">{{ t('cert.field.storePass') }}</label>
           <div class="flex gap-2">
-            <input v-model="viewPass" type="password" class="field-input" ref="viewPassInput" />
+            <input v-model="viewPass" type="password" class="field-input" ref="viewPassInput" autocomplete="off" @keyup.enter="view()" @blur="onViewPassBlur" />
             <button class="btn-primary shrink-0" :disabled="busy" @click="view">{{ t('cert.viewBtn') }}</button>
           </div>
         </div>

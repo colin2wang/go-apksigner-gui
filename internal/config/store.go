@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"go-apksigner-gui/internal/i18n"
+	"go-apksigner-gui/internal/secure"
 )
 
 // Store 线程安全的配置存储器。
@@ -71,8 +73,68 @@ func (s *Store) Load() error {
 		return fmt.Errorf("%s: %w", i18n.T("config.err.parse", s.path), err)
 	}
 	applyDefaults(&v)
+	unprotectCryptoKey(&v)
 	s.data = v
 	return nil
+}
+
+// encPrefix 标记代理密码字段中存放的是 secure.Encrypt 密文。
+const encPrefix = "enc1:"
+
+// unprotectCryptoKey 将落盘的 DPAPI 保护块还原为内存中的明文主密钥。
+// 旧版配置（明文 key 或非 Windows 平台）保持原样，下次 Save 时自动升级为保护格式。
+func unprotectCryptoKey(s *Settings) {
+	if s.CryptoKey == "" {
+		return
+	}
+	if plain, err := secure.UnprotectData(s.CryptoKey); err == nil {
+		s.CryptoKey = plain
+	} else if !errors.Is(err, secure.ErrNotProtected) {
+		// 解保护失败：主密钥属于其他用户/机器，旧密文将无法解密；
+		// 重新生成密钥并清空已保存密码，保证应用可用。
+		fmt.Fprintf(os.Stderr, "[config] 主密钥解保护失败，已重新生成: %v\n", err)
+		s.CryptoKey = generateCryptoKey()
+		s.SavedPasswords = map[string]string{}
+		s.Proxy.Password = ""
+	}
+	decryptProxyPassword(s)
+}
+
+// decryptProxyPassword 将落盘密文还原为内存明文；旧版明文密码保持原样，下次 Save 时自动升级。
+func decryptProxyPassword(s *Settings) {
+	if s.Proxy.Password == "" || !strings.HasPrefix(s.Proxy.Password, encPrefix) {
+		return
+	}
+	plain, err := secure.Decrypt(strings.TrimPrefix(s.Proxy.Password, encPrefix), s.CryptoKey)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[config] 代理密码解密失败，已清空: %v\n", err)
+		s.Proxy.Password = ""
+		return
+	}
+	s.Proxy.Password = plain
+}
+
+// protectCryptoKey 返回 CryptoKey 已受保护、代理密码已加密的数据副本（用于落盘）。
+func protectCryptoKey(s *Settings) Settings {
+	cp := *s
+	if cp.CryptoKey == "" || secure.IsProtected(cp.CryptoKey) {
+		return cp
+	}
+	if prot, err := secure.ProtectData(cp.CryptoKey); err == nil {
+		cp.CryptoKey = prot
+	}
+	return cp
+}
+
+// protectForDisk 在 protectCryptoKey 之上将代理密码加密为密文。
+func protectForDisk(s *Settings) Settings {
+	cp := protectCryptoKey(s)
+	if cp.Proxy.Password != "" && !strings.HasPrefix(cp.Proxy.Password, encPrefix) {
+		if cipher, err := secure.Encrypt(cp.Proxy.Password, cp.CryptoKey); err == nil {
+			cp.Proxy.Password = encPrefix + cipher
+		}
+	}
+	return cp
 }
 
 // Save 原子写入配置（临时文件 + rename）。
@@ -83,7 +145,7 @@ func (s *Store) Save() error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(s.data, "", "  ")
+	data, err := json.MarshalIndent(protectForDisk(&s.data), "", "  ")
 	if err != nil {
 		return err
 	}
@@ -115,14 +177,6 @@ func (s *Store) Snapshot() Settings {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.data
-}
-
-// Get 返回可变引用的访问函数（内部更新后立即落盘）。
-func (s *Store) Get() *Settings {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	cp := s.data
-	return &cp
 }
 
 // applyDefaults 补齐缺失字段的默认值。

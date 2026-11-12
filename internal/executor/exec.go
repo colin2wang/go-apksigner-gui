@@ -71,6 +71,7 @@ type Options struct {
 	Timeout  time.Duration             // 0 表示 5 分钟默认超时
 	WorkDir  string                    // 工作目录
 	Env      map[string]string         // 追加的环境变量
+	Stdin    string                    // 写入子进程标准输入的内容（空则不接管道）
 	OnLine   func(stream, text string) // 实时行回调（stream: stdout/stderr）
 	Throttle time.Duration             // 回调节流间隔，默认 100ms
 }
@@ -155,6 +156,9 @@ func Run(ctx context.Context, name string, args []string, opt Options) *Result {
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
 		return &Result{ExitCode: -1, StartErr: err, Err: err}
+	}
+	if opt.Stdin != "" {
+		cmd.Stdin = strings.NewReader(opt.Stdin)
 	}
 
 	emitter := newLineEmitter(opt.Throttle, opt.OnLine)

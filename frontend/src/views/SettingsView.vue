@@ -34,7 +34,7 @@ function setDefaultScheme(key: SchemeKey, value: boolean) {
 
 async function chooseToolsDir() {
   try {
-    const dir = await api.selectDirectory(t('settings.toolsDirTitle'))
+    const dir = await api.selectDirectory(t('settings.field.toolsDir'))
     if (dir) {
       state.settings.toolsDir = dir
       markDirty()
@@ -46,7 +46,7 @@ async function chooseToolsDir() {
 
 async function chooseSdkDir() {
   try {
-    const dir = await api.selectDirectory(t('settings.sdkDirTitle'))
+    const dir = await api.selectDirectory(t('settings.field.sdkPath'))
     if (dir) {
       state.settings.androidSdk = dir
       markDirty()

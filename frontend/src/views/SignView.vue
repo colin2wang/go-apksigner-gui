@@ -34,17 +34,19 @@ const aliases = ref<string[]>([])
 const aliasLoading = ref(false)
 const ksFiles = ref<KeystoreFile[]>([])
 const ksPass = ref('')
-const rememberPass = ref(true)
+const rememberPass = ref(false)
 const savedPass = ref(true)
 const passResolving = ref(false)
 
-const stepOrder = computed(() => [
-  t('sign.step.remove'),
-  t('sign.step.zipalign'),
-  t('sign.step.sign'),
-  t('sign.step.verify'),
-])
-const visibleSteps = computed(() => stepOrder.value.filter((name) => state.steps.some((s) => s.name === name)))
+// 后端推送稳定步骤 key，展示名由前端翻译（切换语言不丢状态）。
+const stepOrder = ['remove', 'zipalign', 'sign', 'verify']
+const stepLabel = computed<Record<string, string>>(() => ({
+  remove: t('sign.step.remove'),
+  zipalign: t('sign.step.zipalign'),
+  sign: t('sign.step.sign'),
+  verify: t('sign.step.verify'),
+}))
+const visibleSteps = computed(() => stepOrder.filter((key) => state.steps.some((s) => s.name === key)))
 const stepMap = computed(() => {
   const map: Record<string, string> = {}
   state.steps.forEach((s) => {
@@ -186,7 +188,6 @@ async function sign() {
     removeOldSign: form.value.removeOldSign,
     minSdk: Number(form.value.minSdk) || 0,
     maxSdk: Number(form.value.maxSdk) || 0,
-    debuggableApkPerm: false,
   }
 
   try {
@@ -405,9 +406,9 @@ onMounted(async () => {
         {{ t('sign.pipeline') }}
       </div>
       <div class="flex flex-wrap gap-3">
-        <div v-for="name in visibleSteps" :key="name" class="rounded-xl border px-3 py-2 text-xs" :class="stepClass(stepMap[name])">
-          <span class="font-medium">{{ name }}</span>
-          <span class="ml-2 uppercase tracking-wider opacity-70">{{ stepMap[name] }}</span>
+        <div v-for="key in visibleSteps" :key="key" class="rounded-xl border px-3 py-2 text-xs" :class="stepClass(stepMap[key])">
+          <span class="font-medium">{{ stepLabel[key] }}</span>
+          <span class="ml-2 uppercase tracking-wider opacity-70">{{ stepMap[key] }}</span>
         </div>
       </div>
     </section>

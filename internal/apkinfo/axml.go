@@ -209,7 +209,11 @@ func parseStringPool(chunk []byte) ([]string, error) {
 	if len(chunk) < 28 {
 		return nil, errors.New(i18n.T("apkinfo.err.stringPoolShort"))
 	}
-	// headerSize := binary.LittleEndian.Uint16(chunk[2:4])
+	// 偏移按真实 headerSize 计算，而非硬编码 28（chunk header 可能携带扩展字段）。
+	headerSize := int(binary.LittleEndian.Uint16(chunk[2:4]))
+	if headerSize < 28 || headerSize > len(chunk) {
+		headerSize = 28
+	}
 	stringCount := int(binary.LittleEndian.Uint32(chunk[8:12]))
 	// styleCount := binary.LittleEndian.Uint32(chunk[12:16])
 	flags := binary.LittleEndian.Uint32(chunk[16:20])
@@ -217,8 +221,8 @@ func parseStringPool(chunk []byte) ([]string, error) {
 	utf8 := flags&0x100 != 0
 
 	pool := make([]string, 0, stringCount)
-	for i := 0; i < stringCount && 28+i*4+4 <= len(chunk); i++ {
-		rel := int(binary.LittleEndian.Uint32(chunk[28+i*4 : 28+i*4+4]))
+	for i := 0; i < stringCount && headerSize+i*4+4 <= len(chunk); i++ {
+		rel := int(binary.LittleEndian.Uint32(chunk[headerSize+i*4 : headerSize+i*4+4]))
 		pos := stringsStart + rel
 		if pos < 0 || pos >= len(chunk) {
 			pool = append(pool, "")
@@ -283,10 +287,19 @@ func decodeUTF16String(data []byte, pos int) (string, bool) {
 	return string(runeSliceToString(u16)), true
 }
 
-// runeSliceToString 将 UTF-16 单元转为字符串。
+// runeSliceToString 将 UTF-16 单元转为字符串，正确处理代理对（emoji、CJK 扩展区）。
 func runeSliceToString(units []uint16) []rune {
 	out := make([]rune, 0, len(units))
-	for _, u := range units {
+	for i := 0; i < len(units); i++ {
+		u := units[i]
+		if u >= 0xD800 && u <= 0xDBFF && i+1 < len(units) {
+			lo := units[i+1]
+			if lo >= 0xDC00 && lo <= 0xDFFF {
+				out = append(out, ((rune(u)-0xD800)<<10|(rune(lo)-0xDC00))+0x10000)
+				i++
+				continue
+			}
+		}
 		out = append(out, rune(u))
 	}
 	return out

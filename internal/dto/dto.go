@@ -122,21 +122,20 @@ type KeystoreRequest struct {
 
 // SignOptions 签名选项。
 type SignOptions struct {
-	InputAPK          string `json:"inputApk"`
-	OutputAPK         string `json:"outputApk"`
-	Keystore          string `json:"keystore"`
-	Alias             string `json:"alias"`
-	StorePass         string `json:"storePass"`
-	KeyPass           string `json:"keyPass"`
-	V1Enabled         bool   `json:"v1Enabled"`
-	V2Enabled         bool   `json:"v2Enabled"`
-	V3Enabled         bool   `json:"v3Enabled"`
-	V4Enabled         bool   `json:"v4Enabled"`
-	ZipAlignFirst     bool   `json:"zipAlignFirst"`
-	RemoveOldSign     bool   `json:"removeOldSign"`
-	MinSDK            int    `json:"minSdk"`
-	MaxSDK            int    `json:"maxSdk"`
-	DebuggableApkPerm bool   `json:"debuggableApkPerm"`
+	InputAPK      string `json:"inputApk"`
+	OutputAPK     string `json:"outputApk"`
+	Keystore      string `json:"keystore"`
+	Alias         string `json:"alias"`
+	StorePass     string `json:"storePass"`
+	KeyPass       string `json:"keyPass"`
+	V1Enabled     bool   `json:"v1Enabled"`
+	V2Enabled     bool   `json:"v2Enabled"`
+	V3Enabled     bool   `json:"v3Enabled"`
+	V4Enabled     bool   `json:"v4Enabled"`
+	ZipAlignFirst bool   `json:"zipAlignFirst"`
+	RemoveOldSign bool   `json:"removeOldSign"`
+	MinSDK        int    `json:"minSdk"`
+	MaxSDK        int    `json:"maxSdk"`
 }
 
 // VerifyResult apksigner verify 的结构化结果。

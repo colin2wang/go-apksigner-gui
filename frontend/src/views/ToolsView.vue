@@ -80,7 +80,7 @@ function cancel() {
         <span class="h-1.5 w-1.5 rounded-full bg-brand"></span>
         {{ t('tools.statusTitle') }}
         <span class="ml-auto text-xs font-normal text-muted">
-          {{ state.loadingTools ? t('tools.detecting') : t('tools.ready', state.tools.filter((tt) => tt.installed).length, state.tools.length) }}
+          {{ state.loadingTools ? t('tools.detecting') : t('tools.ready', [state.tools.filter((tt) => tt.installed).length, state.tools.length]) }}
         </span>
       </div>
 

@@ -16,7 +16,26 @@ func BuildZipAlignArgs(input, output string) []string {
 	return []string{"-f", "-v", "4", input, output}
 }
 
+// 密码通过子进程环境变量注入，避免出现在进程命令行（任务管理器/WMI 可见）中。
+const (
+	envStorePass = "APKSIGNER_STORE_PASS"
+	envKeyPass   = "APKSIGNER_KEY_PASS"
+)
+
+// SignEnv 返回签名子进程需要注入的密码环境变量。
+func SignEnv(opts dto.SignOptions) map[string]string {
+	env := map[string]string{}
+	if opts.StorePass != "" {
+		env[envStorePass] = opts.StorePass
+	}
+	if opts.KeyPass != "" {
+		env[envKeyPass] = opts.KeyPass
+	}
+	return env
+}
+
 // BuildSignArgs 构造 apksigner sign 参数（入参不含待签名 APK，便于流水线替换中间产物）。
+// 密码以 env:VAR 形式引用，实际值由 SignEnv 注入子进程环境变量。
 func BuildSignArgs(opts dto.SignOptions, input string) []string {
 	args := []string{"sign"}
 
@@ -27,10 +46,10 @@ func BuildSignArgs(opts dto.SignOptions, input string) []string {
 		args = append(args, "--ks-key-alias", strings.TrimSpace(opts.Alias))
 	}
 	if opts.StorePass != "" {
-		args = append(args, "--ks-pass", "pass:"+opts.StorePass)
+		args = append(args, "--ks-pass", "env:"+envStorePass)
 	}
 	if opts.KeyPass != "" {
-		args = append(args, "--key-pass", "pass:"+opts.KeyPass)
+		args = append(args, "--key-pass", "env:"+envKeyPass)
 	}
 	if strings.TrimSpace(opts.OutputAPK) != "" {
 		args = append(args, "--out", opts.OutputAPK)

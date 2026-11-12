@@ -33,20 +33,27 @@ export function setLocale(locale: Locale) {
 }
 
 // t 翻译指定 key；支持位置参数 {0} {1} 或命名参数 {name}。
+// 兼容直接传字符串/数字的场景（如 t('key', count)），按 [param] 处理。
 // 回退链：当前语言 → 中文 → key 原文，保证缺失翻译不崩。
-export function t(key: string, params?: Record<string, unknown> | unknown[]): string {
+export function t(key: string, params?: Record<string, unknown> | unknown[] | string): string {
   const cat = catalogs[i18nState.locale] ?? catalogs['zh-CN']
   let msg: string = cat[key] ?? catalogs['zh-CN'][key] ?? key
   if (params) {
-    if (Array.isArray(params)) {
-      params.forEach((v, i) => {
+    const args = typeof params === 'object' && params !== null ? params : [params]
+    if (Array.isArray(args)) {
+      args.forEach((v, i) => {
         msg = msg.replace(new RegExp(`\\{${i}\\}`, 'g'), String(v))
       })
     } else {
-      Object.entries(params).forEach(([k, v]) => {
-        msg = msg.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+      Object.entries(args).forEach(([k, v]) => {
+        msg = msg.replace(new RegExp(`\\{${escapeRegExp(String(k))}\\}`, 'g'), String(v))
       })
     }
   }
   return msg
+}
+
+// escapeRegExp 转义正则特殊字符，避免参数名/值中的元字符破坏替换。
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

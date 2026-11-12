@@ -2,7 +2,8 @@
 // Date: 2026-10-06
 
 // Package secure 提供基于 AES-256-GCM 的轻量对称加密，用于在本机配置文件中以密文形式保存密钥库密码。
-// 主密钥随配置文件一同生成并存储（文件权限 0600），仅在本机、本用户下可用。
+// 主密钥在 Windows 上经 DPAPI（CryptProtectData）保护后落盘，绑定当前用户，其他用户/机器无法解密；
+// 非 Windows 平台主密钥与密文同存于配置文件（0600），仅防 casual 泄露。
 package secure
 
 import (

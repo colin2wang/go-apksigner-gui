@@ -106,7 +106,7 @@ function handleClear() {
           <span class="h-2 w-2 animate-ping rounded-full bg-brand"></span> {{ t('app.taskRunning') }}
         </span>
         <span v-if="missingTools.length" class="chip bg-amber-400/15 text-amber-300">
-          {{ t('app.missingTools', missingTools.length) }}
+          {{ t('app.missingTools', [missingTools.length]) }}
         </span>
         <span v-else class="chip bg-brand/15 text-brand-light">{{ t('app.toolsReady') }}</span>
       </div>

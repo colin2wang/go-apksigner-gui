@@ -1,0 +1,8 @@
+# 仓库统一 LF，跨平台 diff 稳定
+* text=auto eol=lf
+
+# Windows 脚本需要 CRLF 才能可靠执行
+build.ps1 text eol=crlf
+
+# 二进制资源，git 不做任何归一化
+*.png binary

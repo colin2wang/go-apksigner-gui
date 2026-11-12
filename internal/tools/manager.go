@@ -35,7 +35,15 @@ type Manager struct {
 	cacheTool map[string]Tool
 	cfg       *appcfg.Config
 	sdkPath   string
+
+	// detectMu 保护 DetectAll 的 single-flight 与状态缓存（与 mu 分离避免嵌套）。
+	detectMu       sync.Mutex
+	cachedStatuses []dto.ToolStatus
+	cachedAt       time.Time
 }
+
+// detectCacheTTL 检测结果缓存时长：每次检测会拉起多个子进程，短 TTL 避免重复开销。
+const detectCacheTTL = 5 * time.Second
 
 // NewManager 创建工具链管理器。cfg 为外部化配置（可为 nil，内部回退默认值）。
 func NewManager(toolsDir string, mirror dto.MirrorSource, proxy dto.ProxyConfig, cfg *appcfg.Config) *Manager {
@@ -64,8 +72,9 @@ func NewManager(toolsDir string, mirror dto.MirrorSource, proxy dto.ProxyConfig,
 // SetSdkPath 设置用户配置的 Android SDK 根目录（手动安装场景）。
 func (m *Manager) SetSdkPath(path string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.sdkPath = path
+	m.mu.Unlock()
+	m.invalidateDetectCache()
 }
 
 // SetMirror 切换镜像源。
@@ -80,6 +89,14 @@ func (m *Manager) Mirror() dto.MirrorSource {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.mirror
+}
+
+// MirrorsList 返回可用镜像源清单：优先外部化配置（app.yaml），否则内置默认。
+func (m *Manager) MirrorsList() []dto.MirrorSource {
+	if m.cfg != nil && len(m.cfg.Mirrors) > 0 {
+		return m.cfg.Mirrors
+	}
+	return Mirrors
 }
 
 // SetProxy 更新代理设置并重建 HTTP 客户端。
@@ -105,7 +122,6 @@ func (m *Manager) Proxy() dto.ProxyConfig {
 // SetOverride 记录用户手工指定的工具路径，空字符串表示清除。
 func (m *Manager) SetOverride(name, path string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if m.override == nil {
 		m.override = map[string]string{}
 	}
@@ -115,18 +131,26 @@ func (m *Manager) SetOverride(name, path string) {
 		m.override[name] = path
 	}
 	m.cacheTool = nil
+	m.mu.Unlock()
+	m.invalidateDetectCache()
 }
 
 // ToolsDir 返回工具目录。
 func (m *Manager) ToolsDir() string { return m.toolsDir }
 
-// DetectAll 返回全部工具的状态。
+// DetectAll 返回全部工具的状态（single-flight + 短 TTL 缓存，避免重复拉起探测子进程）。
 func (m *Manager) DetectAll() []dto.ToolStatus {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.detectMu.Lock()
+	defer m.detectMu.Unlock()
 
+	if m.cachedStatuses != nil && time.Since(m.cachedAt) < detectCacheTTL {
+		return m.cachedStatuses
+	}
+
+	m.mu.Lock()
 	detected := Detect(DetectOptions{ToolsDir: m.toolsDir, Override: m.override, SdkPath: m.sdkPath})
 	m.cacheTool = detected
+	m.mu.Unlock()
 
 	statuses := make([]dto.ToolStatus, 0, len(specs))
 	for _, s := range specs {
@@ -140,7 +164,17 @@ func (m *Manager) DetectAll() []dto.ToolStatus {
 			Source:    sourceOf(t),
 		})
 	}
+	m.cachedStatuses = statuses
+	m.cachedAt = time.Now()
 	return statuses
+}
+
+// invalidateDetectCache 清空检测结果缓存（工具路径覆盖、SDK 路径或安装状态变化后调用）。
+func (m *Manager) invalidateDetectCache() {
+	m.detectMu.Lock()
+	m.cachedStatuses = nil
+	m.cachedAt = time.Time{}
+	m.detectMu.Unlock()
 }
 
 // Tool 返回指定工具的调用方式（缓存优先）。
@@ -313,6 +347,7 @@ func (m *Manager) InstallViaSdkManager(ctx context.Context, version string, on P
 	m.mu.Lock()
 	m.cacheTool = nil
 	m.mu.Unlock()
+	m.invalidateDetectCache()
 	statuses := m.DetectAll()
 	emit(on, dto.Progress{FileName: "build-tools;" + version, Stage: "done", Percent: 100, Message: i18n.T("tools.status.installed")})
 	detail := fmt.Sprintf("SDK 根目录: %s\n", root)
@@ -478,4 +513,10 @@ func failedResult(msg string) dto.TaskResult {
 func RunTool(ctx context.Context, t Tool, args []string, timeout time.Duration, onLine func(stream, text string)) *executor.Result {
 	bin, fullArgs := t.Command(args)
 	return executor.Run(ctx, bin, fullArgs, executor.Options{Timeout: timeout, OnLine: onLine})
+}
+
+// RunToolOpts 以完整 executor.Options 调用工具（支持 Env / Stdin 等）。
+func RunToolOpts(ctx context.Context, t Tool, args []string, opt executor.Options) *executor.Result {
+	bin, fullArgs := t.Command(args)
+	return executor.Run(ctx, bin, fullArgs, opt)
 }

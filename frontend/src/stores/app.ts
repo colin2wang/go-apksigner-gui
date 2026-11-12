@@ -150,3 +150,9 @@ export function formatSize(bytes: number): string {
   }
   return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${units[i]}`
 }
+
+// formatTime 格式化毫秒时间戳为本地时间字符串。
+export function formatTime(ms: number): string {
+  if (!ms) return ''
+  return new Date(ms).toLocaleString()
+}

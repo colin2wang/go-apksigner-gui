@@ -5,8 +5,10 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -68,6 +70,28 @@ func TestStoreIgnoresBrokenFile(t *testing.T) {
 	s := New(path)
 	if s.Snapshot().ToolsDir == "" {
 		t.Fatal("配置损坏时应回退到默认值")
+	}
+}
+
+func TestStoreConcurrentUpdateSave(t *testing.T) {
+	// 并发 Update / Snapshot / Save 不应产生竞态与数据损坏（配合 -race 运行）
+	s := newTestStore(t)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < 20; j++ {
+				_ = s.Update(func(cfg *Settings) {
+					cfg.LastAlias = fmt.Sprintf("alias-%d-%d", i, j)
+				})
+				_ = s.Snapshot()
+			}
+		}(i)
+	}
+	wg.Wait()
+	if s.Snapshot().LastAlias == "" {
+		t.Fatal("并发更新后 LastAlias 不应为空")
 	}
 }
 

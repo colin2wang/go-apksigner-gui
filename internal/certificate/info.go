@@ -102,10 +102,11 @@ func fieldValue(line string, pattern *regexp.Regexp) string {
 	return strings.TrimSpace(m[1])
 }
 
-// parseValidity 从有效期行中提取起止时间，支持英文 until 与中文「至」两种分隔。
+// parseValidity 从有效期行中提取起止时间，支持英文 until 与中文「至」两种分隔；
+// 冒号同时兼容半角与全角（中文 keytool 输出使用全角「：」）。
 func parseValidity(line string) (string, string) {
 	value := line
-	if idx := strings.IndexAny(line, ":"); idx >= 0 && strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "valid") {
+	if idx := strings.IndexAny(line, "：:"); idx >= 0 && strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "valid") {
 		value = strings.TrimSpace(line[idx+1:])
 	}
 	sepIdx := -1

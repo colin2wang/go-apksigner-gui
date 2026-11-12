@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"go-apksigner-gui/internal/dto"
+	"go-apksigner-gui/internal/executor"
+	"go-apksigner-gui/internal/fileutil"
 	"go-apksigner-gui/internal/i18n"
 	"go-apksigner-gui/internal/logger"
 	"go-apksigner-gui/internal/tools"
@@ -43,12 +45,17 @@ func (m *Manager) keytool() (tools.Tool, error) {
 var javaLocaleArgs = []string{"-J-Duser.language=en", "-J-Duser.country=US"}
 
 // runKeytool 执行 keytool 命令并对输出脱敏后返回原始结果。
-func (m *Manager) runKeytool(ctx context.Context, timeout time.Duration, args []string, secrets ...string) (*toolsRunResult, error) {
+// 密码通过 stdin 传入（keytool 在缺少 -storepass 等参数时会从标准输入逐行读取交互提示），
+// 避免密码出现在进程命令行中。
+func (m *Manager) runKeytool(ctx context.Context, timeout time.Duration, args []string, stdin string, secrets ...string) (*toolsRunResult, error) {
 	kt, err := m.keytool()
 	if err != nil {
 		return nil, err
 	}
-	res := tools.RunTool(ctx, kt, append(append([]string{}, javaLocaleArgs...), args...), timeout, nil)
+	res := tools.RunToolOpts(ctx, kt, append(append([]string{}, javaLocaleArgs...), args...), executor.Options{
+		Timeout: timeout,
+		Stdin:   stdin,
+	})
 	if res == nil {
 		return nil, fmt.Errorf("%s", i18n.T("cert.err.keytoolNoResult"))
 	}
@@ -111,7 +118,7 @@ func (m *Manager) Generate(ctx context.Context, req dto.KeystoreRequest) (string
 			return "", fmt.Errorf("%s: %w", i18n.T("cert.err.createDir"), err)
 		}
 	}
-	res, err := m.runKeytool(ctx, 2*time.Minute, args, req.StorePass, req.KeyPass)
+	res, err := m.runKeytool(ctx, 2*time.Minute, args, genStdin(req), req.StorePass, req.KeyPass)
 	if err != nil {
 		if res != nil {
 			return res.Output, err
@@ -119,6 +126,31 @@ func (m *Manager) Generate(ctx context.Context, req dto.KeystoreRequest) (string
 		return "", err
 	}
 	return res.Output, nil
+}
+
+// keyPass 返回密钥密码（未单独指定时与密钥库密码相同）。
+func keyPass(req dto.KeystoreRequest) string {
+	if req.KeyPass == "" {
+		return req.StorePass
+	}
+	return req.KeyPass
+}
+
+// genStdin 组装 -genkeypair 交互提示所需的密码输入。
+// keytool 无控制台时从 stdin 逐行读取：
+// 新建密钥库时要求「输入 + 重复输入」密钥库密码；密钥密码单独提示且同样要求重复输入，
+// 与密钥库密码相同时按 RETURN（读空/EOF 即可），keytool 自动沿用 storepass。
+func genStdin(req dto.KeystoreRequest) string {
+	sb := strings.Builder{}
+	sb.WriteString(req.StorePass + "\n")
+	if !fileutil.Exists(req.OutputPath) {
+		sb.WriteString(req.StorePass + "\n")
+	}
+	if kp := keyPass(req); kp != req.StorePass {
+		sb.WriteString(kp + "\n")
+		sb.WriteString(kp + "\n")
+	}
+	return sb.String()
 }
 
 // buildGenArgs 构造 -genkeypair 参数，包含 DN 转义与算法处理。
@@ -137,10 +169,6 @@ func buildGenArgs(req dto.KeystoreRequest) ([]string, error) {
 	if storeType == "" {
 		storeType = inferredStoreType(req.OutputPath)
 	}
-	keyPass := req.KeyPass
-	if keyPass == "" {
-		keyPass = req.StorePass
-	}
 
 	args := []string{
 		"-genkeypair", "-v",
@@ -148,8 +176,6 @@ func buildGenArgs(req dto.KeystoreRequest) ([]string, error) {
 		"-alias", strings.TrimSpace(c.Alias),
 		"-keyalg", algo,
 		"-validity", fmt.Sprintf("%d", validity),
-		"-storepass", req.StorePass,
-		"-keypass", keyPass,
 		"-dname", buildDName(c),
 	}
 	if storeType != "" {
@@ -212,8 +238,8 @@ func (m *Manager) List(ctx context.Context, path, storePass string) (*dto.Keysto
 	if storePass == "" {
 		return nil, fmt.Errorf("%s", i18n.T("cert.err.noStorePass"))
 	}
-	args := []string{"-list", "-v", "-keystore", path, "-storepass", storePass}
-	res, err := m.runKeytool(ctx, time.Minute, args, storePass)
+	args := []string{"-list", "-v", "-keystore", path}
+	res, err := m.runKeytool(ctx, time.Minute, args, storePass+"\n", storePass)
 	if err != nil {
 		return nil, err
 	}
@@ -247,17 +273,19 @@ func (m *Manager) Export(ctx context.Context, keystorePath, storePass, alias, ou
 	if keystorePath == "" || outputPath == "" {
 		return "", fmt.Errorf("%s", i18n.T("cert.err.exportPaths"))
 	}
+	if strings.TrimSpace(alias) == "" {
+		return "", fmt.Errorf("%s", i18n.T("cert.err.noAlias"))
+	}
 	if dir := filepath.Dir(outputPath); dir != "" {
 		_ = os.MkdirAll(dir, 0o755)
 	}
 	args := []string{
 		"-exportcert", "-rfc",
 		"-keystore", keystorePath,
-		"-storepass", storePass,
 		"-alias", alias,
 		"-file", outputPath,
 	}
-	res, err := m.runKeytool(ctx, time.Minute, args, storePass)
+	res, err := m.runKeytool(ctx, time.Minute, args, storePass+"\n", storePass)
 	out := ""
 	if res != nil {
 		out = res.Output
@@ -276,17 +304,29 @@ func (m *Manager) Convert(ctx context.Context, srcPath, srcPass, dstPath, dstPas
 	if srcPath == dstPath {
 		return "", fmt.Errorf("%s", i18n.T("cert.err.samePath"))
 	}
+	if strings.TrimSpace(srcPass) == "" || strings.TrimSpace(dstPass) == "" {
+		return "", fmt.Errorf("%s", i18n.T("cert.err.noStorePass"))
+	}
 	dstType = strings.ToUpper(defaultString(dstType, inferredStoreType(dstPath)))
+	switch dstType {
+	case "JKS", "PKCS12":
+	default:
+		return "", fmt.Errorf("%s", i18n.T("cert.err.badExt", dstType))
+	}
+	// keytool 提示顺序固定为目标密码在前（新建目标库时会要求重复输入）、源密码在后。
+	stdin := dstPass + "\n"
+	if !fileutil.Exists(dstPath) {
+		stdin += dstPass + "\n"
+	}
+	stdin += srcPass + "\n"
 	args := []string{
 		"-importkeystore",
 		"-srckeystore", srcPath,
-		"-srcstorepass", srcPass,
 		"-destkeystore", dstPath,
-		"-deststorepass", dstPass,
 		"-deststoretype", dstType,
 		"-noprompt",
 	}
-	res, err := m.runKeytool(ctx, 2*time.Minute, args, srcPass, dstPass)
+	res, err := m.runKeytool(ctx, 2*time.Minute, args, stdin, srcPass, dstPass)
 	out := ""
 	if res != nil {
 		out = res.Output
@@ -302,8 +342,8 @@ func (m *Manager) DeleteAlias(ctx context.Context, path, storePass, alias string
 	if alias == "" {
 		return "", fmt.Errorf("%s", i18n.T("cert.err.noAliasDel"))
 	}
-	args := []string{"-delete", "-keystore", path, "-storepass", storePass, "-alias", alias}
-	res, err := m.runKeytool(ctx, time.Minute, args, storePass)
+	args := []string{"-delete", "-keystore", path, "-alias", alias}
+	res, err := m.runKeytool(ctx, time.Minute, args, storePass+"\n", storePass)
 	out := ""
 	if res != nil {
 		out = res.Output

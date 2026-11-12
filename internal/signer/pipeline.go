@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"go-apksigner-gui/internal/dto"
+	"go-apksigner-gui/internal/executor"
 	"go-apksigner-gui/internal/fileutil"
 	"go-apksigner-gui/internal/i18n"
 	"go-apksigner-gui/internal/tools"
@@ -36,12 +37,12 @@ func (m *Manager) Sign(ctx context.Context, opts dto.SignOptions, cb *Callbacks)
 
 	initialSteps := []string{}
 	if opts.RemoveOldSign {
-		initialSteps = append(initialSteps, i18n.T("sign.step.remove"))
+		initialSteps = append(initialSteps, "remove")
 	}
 	if opts.ZipAlignFirst {
-		initialSteps = append(initialSteps, i18n.T("sign.step.zipalign"))
+		initialSteps = append(initialSteps, "zipalign")
 	}
-	allSteps := append(append(initialSteps, i18n.T("sign.step.sign")), i18n.T("sign.step.verify"))
+	allSteps := append(append(initialSteps, "sign"), "verify")
 	for _, name := range allSteps {
 		cb.step(name, "pending", "")
 	}
@@ -50,28 +51,28 @@ func (m *Manager) Sign(ctx context.Context, opts dto.SignOptions, cb *Callbacks)
 
 	// 步骤 1：移除旧签名（避免重复签名导致安装失败）
 	if opts.RemoveOldSign {
-		cb.step(i18n.T("sign.step.remove"), "running", inputAPK)
+		cb.step("remove", "running", inputAPK)
 		unsigned := filepath.Join(workDir, "unsigned.apk")
 		removed, err := m.RemoveSignature(ctx, inputAPK, unsigned)
 		if err != nil {
-			cb.step(i18n.T("sign.step.remove"), "error", err.Error())
+			cb.step("remove", "error", err.Error())
 			return nil, fmt.Errorf("%s: %w", i18n.T("sign.err.removeStepFail"), err)
 		}
 		inputAPK = unsigned
-		cb.step(i18n.T("sign.step.remove"), "success", i18n.T("sign.detail.removed", removed))
+		cb.step("remove", "success", i18n.T("sign.detail.removed", removed))
 	}
 
 	// 步骤 2：zipalign 对齐（必须在签名之前执行）
 	if opts.ZipAlignFirst {
-		cb.step(i18n.T("sign.step.zipalign"), "running", inputAPK)
+		cb.step("zipalign", "running", inputAPK)
 		aligned := filepath.Join(workDir, "aligned.apk")
 		out, err := m.ZipAlign(ctx, inputAPK, aligned, cb)
 		if err != nil {
-			cb.step(i18n.T("sign.step.zipalign"), "error", err.Error())
+			cb.step("zipalign", "error", err.Error())
 			return nil, err
 		}
 		inputAPK = aligned
-		cb.step(i18n.T("sign.step.zipalign"), "success", trimOutput(out))
+		cb.step("zipalign", "success", trimOutput(out))
 	}
 
 	// 步骤 3：apksigner sign
@@ -80,43 +81,47 @@ func (m *Manager) Sign(ctx context.Context, opts dto.SignOptions, cb *Callbacks)
 		outputAPK = DefaultOutputPath(opts.InputAPK)
 	}
 	if err := os.MkdirAll(filepath.Dir(outputAPK), 0o755); err != nil {
-		cb.step(i18n.T("sign.step.sign"), "error", err.Error())
+		cb.step("sign", "error", err.Error())
 		return nil, fmt.Errorf("%s: %w", i18n.T("sign.err.createOutDir"), err)
 	}
-	cb.step(i18n.T("sign.step.sign"), "running", outputAPK)
+	cb.step("sign", "running", outputAPK)
 
 	apksigner, err := m.mustTool("apksigner")
 	if err != nil {
-		cb.step(i18n.T("sign.step.sign"), "error", err.Error())
+		cb.step("sign", "error", err.Error())
 		return nil, err
 	}
 	signOpts := opts
 	signOpts.OutputAPK = outputAPK
-	res := tools.RunTool(ctx, apksigner, BuildSignArgs(signOpts, inputAPK), signTimeout, cb.line)
+	res := tools.RunToolOpts(ctx, apksigner, BuildSignArgs(signOpts, inputAPK), executor.Options{
+		Timeout: signTimeout,
+		OnLine:  cb.line,
+		Env:     SignEnv(signOpts),
+	})
 	if res == nil {
-		cb.step(i18n.T("sign.step.sign"), "error", i18n.T("sign.err.apksignerNoResult"))
+		cb.step("sign", "error", i18n.T("sign.err.apksignerNoResult"))
 		return nil, fmt.Errorf("%s", i18n.T("sign.err.apksignerNoResult"))
 	}
 	if res.StartErr != nil {
-		cb.step(i18n.T("sign.step.sign"), "error", res.StartErr.Error())
+		cb.step("sign", "error", res.StartErr.Error())
 		return nil, res.StartErr
 	}
 	if res.TimedOut {
-		cb.step(i18n.T("sign.step.sign"), "error", i18n.T("sign.err.signTimeout"))
+		cb.step("sign", "error", i18n.T("sign.err.signTimeout"))
 		return nil, fmt.Errorf("%s", i18n.T("sign.err.signTimeoutDetail", signTimeout))
 	}
 	if res.ExitCode != 0 {
 		detail := strings.TrimSpace(res.ErrorText())
-		cb.step(i18n.T("sign.step.sign"), "error", detail)
+		cb.step("sign", "error", detail)
 		return nil, fmt.Errorf("%s", i18n.T("sign.err.signFail", res.ExitCode, cb.mask(detail)))
 	}
-	cb.step(i18n.T("sign.step.sign"), "success", i18n.T("sign.msg.signDone"))
+	cb.step("sign", "success", i18n.T("sign.msg.signDone"))
 
 	// 步骤 4：验证签名结果
-	cb.step(i18n.T("sign.step.verify"), "running", outputAPK)
+	cb.step("verify", "running", outputAPK)
 	verifyResult, err := m.Verify(ctx, outputAPK)
 	if err != nil {
-		cb.step(i18n.T("sign.step.verify"), "error", err.Error())
+		cb.step("verify", "error", err.Error())
 		return nil, err
 	}
 	result.Verify = verifyResult
@@ -125,12 +130,12 @@ func (m *Manager) Sign(ctx context.Context, opts dto.SignOptions, cb *Callbacks)
 	result.SignVersion = VerifySummary(*verifyResult)
 
 	if !verifyResult.Verified {
-		cb.step(i18n.T("sign.step.verify"), "error", i18n.T("sign.err.verifyNotPass"))
+		cb.step("verify", "error", i18n.T("sign.err.verifyNotPass"))
 		result.Success = false
 		result.Message = i18n.T("sign.msg.verifyFailDetail")
 		return result, nil
 	}
-	cb.step(i18n.T("sign.step.verify"), "success", i18n.T("sign.detail.verified", result.SignVersion))
+	cb.step("verify", "success", i18n.T("sign.detail.verified", result.SignVersion))
 	result.Success = true
 	result.Message = i18n.T("sign.msg.success", result.SignVersion)
 	return result, nil
@@ -158,6 +163,9 @@ func validateSignOptions(opts dto.SignOptions) error {
 	}
 	if opts.MinSDK > 0 && opts.MaxSDK > 0 && opts.MinSDK > opts.MaxSDK {
 		return fmt.Errorf("%s", i18n.T("sign.err.sdkOrder"))
+	}
+	if strings.TrimSpace(opts.OutputAPK) != "" && opts.OutputAPK == opts.InputAPK {
+		return fmt.Errorf("%s", i18n.T("sign.err.sameInOut"))
 	}
 	return nil
 }

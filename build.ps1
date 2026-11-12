@@ -15,6 +15,8 @@
     Additionally generate Windows installer using NSIS (NSIS must be installed locally)
 .PARAMETER Clean
     Clean build directory before build
+.PARAMETER AppVersion
+    Application version injected via -ldflags (falls back to the latest git tag)
 .EXAMPLE
     .\build.ps1
     .\build.ps1 -Package
@@ -26,7 +28,8 @@ param(
     [switch]$SkipInstall,
     [switch]$SkipFrontend,
     [switch]$Package,
-    [switch]$Clean
+    [switch]$Clean,
+    [string]$AppVersion
 )
 
 $ErrorActionPreference = 'Stop'
@@ -106,7 +109,26 @@ try {
     # Build the frontend inside wails: it regenerates bindings first, then builds
     # the frontend, so the embedded dist reflects the latest backend methods.
     # -SkipFrontend reuses an already-built dist (skips the internal frontend build).
-    $buildArgs = @('build', '-ldflags', '-s -w')
+    # Version is injected via -ldflags; override with -AppVersion or a git tag.
+    $version = $AppVersion
+    if (-not $version) {
+        # git describe writes to stderr when no tag exists; with $ErrorActionPreference='Stop'
+        # PowerShell 5.1 turns that stderr (even redirected) into a terminating error.
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $tag = git describe --tags --abbrev=0 2>$null
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+        if ($LASTEXITCODE -eq 0 -and $tag) { $version = $tag.TrimStart('v') }
+    }
+    $ldflags = '-s -w'
+    if ($version) {
+        $ldflags += " -X main.appVersion=$version"
+        Write-Ok "Injecting app version: $version"
+    }
+    $buildArgs = @('build', '-ldflags', $ldflags)
     if ($SkipFrontend) { $buildArgs += '-s' }
     if ($Package) {
         if (Get-Command makensis -ErrorAction SilentlyContinue) {

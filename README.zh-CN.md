@@ -2,12 +2,13 @@
 
 [English Version](README.md)
 
+![Wails](https://img.shields.io/badge/Wails-v2-red?logo=wails&logoColor=white) ![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white) ![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vuedotjs&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white) ![TDesign](https://img.shields.io/badge/TDesign-1.13-0052D9) ![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white) ![pnpm](https://img.shields.io/badge/pnpm-package--manager-F69220?logo=pnpm&logoColor=white)
+
 用桌面 GUI 包装 Google `apksigner` 工具链，让使用者无需记忆命令行即可完成
 「安装工具链 → 生成/查看证书 → 对齐 → 签名 → 验证」的完整流程。界面支持中英双语
 （简体中文 / English，默认简体中文），主窗口单页多模块切换，所有长耗时操作均有实时进度与日志输出。
 
-- 后端：Go + Wails v2（Go 后端 + 系统 WebView，单一 exe）
-- 前端：Vue 3 + TypeScript + Vite + TailwindCSS + TDesign，包管理器 **pnpm**
+- 单一 exe 桌面应用：Go 后端 + 系统 WebView（Wails）
 - 目标平台：Windows（逻辑已做跨平台处理，Linux / macOS 亦可运行）
 
 ## 一、界面预览
@@ -169,6 +170,7 @@ aapt2/AXML 解析、ZIP 解压（ZIP Slip 防护、META-INF 过滤）、进程�
 - **aapt2 缺失导致 APK 信息解析不全**：工具会自动降级为内置 AXML 解析，仅能回填基础字段，建议安装 build-tools。
 - **配置文件在哪**：`os.UserConfigDir()/go-apksigner-gui/config.json`，权限 0600。
 - **密钥库密码会落盘吗**：只有在显式勾选「记住密码」时才会保存，且使用 AES-256-GCM 加密，
-  主密钥是随机生成的 32 字节密钥并存放在同一个 0600 配置文件中，仅在本机本用户下可用；可随时删除已保存的密码。
+  主密钥是随机生成的 32 字节密钥；Windows 上主密钥额外经系统级 DPAPI（CryptProtectData）保护，绑定当前用户，
+  其他用户/机器拿到配置文件也无法解密；非 Windows 平台主密钥与密文同存于 0600 配置文件，仅防 casual 泄露。可随时删除已保存的密码。
 - **日志里出现 `******`**：密码在落盘与事件推送前已被脱敏。
 - **`go:embed` 编译报错**：前端未构建时 `frontend/dist/index.html` 不存在，请先执行 `pnpm exec vite build` 或 `.\build.ps1`。

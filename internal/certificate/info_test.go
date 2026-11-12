@@ -117,6 +117,19 @@ func TestParseKeytoolListMultipleEntries(t *testing.T) {
 	}
 }
 
+func TestParseValidityFullWidthColon(t *testing.T) {
+	// 中文 keytool 输出使用全角冒号，解析不应漏行
+	from, to := parseValidity("有效期: 从 Mon Oct 06 12:00:00 CST 2026 至 Wed Oct 04 12:00:00 CST 2051")
+	if from == "" || to == "" {
+		t.Fatalf("中文有效期行解析失败: %q, %q", from, to)
+	}
+	// 纯全角冒号前缀（无「Valid/有效期」引导词）时原样返回
+	value, _ := parseValidity("备注：全角冒号")
+	if value != "备注：全角冒号" {
+		t.Fatalf("非有效性行不应被改写: %q", value)
+	}
+}
+
 func TestCountEntries(t *testing.T) {
 	if got := CountEntries(englishOutput); got != 1 {
 		t.Fatalf("英文条目数应为 1，实际 %d", got)

@@ -2,10 +2,11 @@
 
 [中文版](README.zh-CN.md)
 
+![Wails](https://img.shields.io/badge/Wails-v2-red?logo=wails&logoColor=white) ![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white) ![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vuedotjs&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white) ![TDesign](https://img.shields.io/badge/TDesign-1.13-0052D9) ![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white) ![pnpm](https://img.shields.io/badge/pnpm-package--manager-F69220?logo=pnpm&logoColor=white)
+
 A desktop GUI wrapper around Google's `apksigner` toolchain, letting users complete the full workflow of "install toolchain → generate/view certificates → align → sign → verify" without memorizing command lines. The UI is bilingual (Simplified Chinese / English, Chinese by default); the main window is a single page with multiple modules, and every long-running operation streams real-time progress and log output.
 
-- Backend: Go + Wails v2 (Go backend + system WebView, single exe)
-- Frontend: Vue 3 + TypeScript + Vite + TailwindCSS + TDesign, package manager **pnpm**
+- Single-binary desktop app: Go backend + system WebView (Wails)
 - Target platform: Windows (logic is cross-platform; Linux / macOS can also run it)
 
 ## 1. Screenshots
@@ -151,6 +152,6 @@ For logic involving the real toolchain (`keytool` / `apksigner` / `zipalign` / `
 - **`sdkmanager` install reports failure**: `sdkmanager` itself requires Java. Make sure `java` is on `PATH` or `JAVA_HOME` is set (the JDK providing `keytool` already satisfies this). The command-line tools package is downloaded from the URL configured in `app.yaml`.
 - **Missing aapt2 causes incomplete APK info parsing**: The tool automatically degrades to the built-in AXML parser, which only fills in basic fields; installing build-tools is recommended.
 - **Where is the config file**: `os.UserConfigDir()/go-apksigner-gui/config.json`, permissions 0600.
-- **Are keystore passwords stored on disk?**: Only if you explicitly tick "remember password". They are encrypted with AES-256-GCM using a random 32-byte master key that lives in the same 0600 config file, so they are only usable on this machine/account. You can remove a saved password at any time.
+- **Are keystore passwords stored on disk?**: Only if you explicitly tick "remember password". They are encrypted with AES-256-GCM using a random 32-byte master key. On Windows the master key is additionally protected by the OS-level DPAPI (CryptProtectData), binding it to the current user account; on other platforms the key and the ciphertext live in the same 0600 config file, which protects against casual disclosure only. You can remove a saved password at any time.
 - **`******` appears in logs**: Passwords are masked before being written to disk or pushed via events.
 - **`go:embed` compile error**: When the frontend hasn't been built, `frontend/dist/index.html` doesn't exist; run `pnpm exec vite build` or `.\build.ps1` first.

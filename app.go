@@ -42,8 +42,8 @@ type App struct {
 	apkParser *apkinfo.Parser
 }
 
-// appVersion 应用版本号。
-const appVersion = "1.0.0"
+// appVersion 应用版本号，构建时可通过 -ldflags "-X main.appVersion=…" 注入（见 build.ps1）。
+var appVersion = "1.0.0"
 
 // NewApp 构造应用，初始化配置与各业务模块。
 func NewApp() *App {
@@ -59,10 +59,7 @@ func NewApp() *App {
 		Username: settings.Proxy.Username,
 		Password: settings.Proxy.Password,
 	}
-	// 将外部化配置中的镜像源注入探测器查找表（避免空列表覆盖导致越界）
-	if len(appCfg.Mirrors) > 0 {
-		tools.Mirrors = appCfg.Mirrors
-	}
+	// 镜像源清单由 toolMgr 从外部化配置读取（MirrorsList），不再修改包级全局变量
 	toolMgr := tools.NewManager(settings.ToolsDir, tools.FindMirror(settings.Mirror.BaseURL), proxy, appCfg)
 	for name, path := range settings.Tools {
 		toolMgr.SetOverride(name, path)
@@ -98,7 +95,7 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) shutdown(ctx context.Context) {
 	logger.Info(i18n.T("app.log.shutdown"))
 	if err := a.cfg.Save(); err != nil {
-		logger.Error("保存配置失败", "error", err.Error())
+		logger.Error(i18n.T("app.log.saveCfgFail"), "error", err.Error())
 	}
 }
 
@@ -192,7 +189,10 @@ func (a *App) SaveSettings(settings dto.AppSettings) error {
 	}
 	a.toolMgr.SetSdkPath(settings.AndroidSdk)
 	logger.Info(i18n.T("app.log.settingsSaved"), "mirror", settings.Mirror.Name, "proxy", settings.Proxy.Enabled, "language", settings.Language)
-	a.emit("tools:changed", a.toolMgr.DetectAll())
+	// 检测会拉起多个子进程，异步执行避免阻塞绑定调用。
+	go func() {
+		a.emit("tools:changed", a.toolMgr.DetectAll())
+	}()
 	return nil
 }
 
@@ -220,8 +220,20 @@ func (a *App) RecentLogs(n int) []logger.Entry {
 
 // ---------------------------------------------------------------- 文件选择
 
-// apkFilter APK 文件对话框过滤器。
-const apkFilter = "APK 文件 (*.apk):*.apk"
+// apkFilter APK 文件对话框过滤器（Wails FileFilter.Pattern 只接受纯模式串）。
+const apkFilter = "*.apk"
+
+// filterDisplayName 依据模式串返回对话框过滤器的显示名。
+func filterDisplayName(pattern string) string {
+	switch pattern {
+	case "*.apk":
+		return i18n.T("app.filter.apk")
+	case "*.jks;*.keystore;*.p12;*.pfx":
+		return i18n.T("app.filter.keystore")
+	default:
+		return i18n.T("app.dialog.filterDefault")
+	}
+}
 
 // SelectOpenFile 打开文件（默认 APK）。
 func (a *App) SelectOpenFile(filter string) (string, error) {
@@ -229,8 +241,8 @@ func (a *App) SelectOpenFile(filter string) (string, error) {
 		filter = apkFilter
 	}
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title:   "选择文件",
-		Filters: []runtime.FileFilter{{DisplayName: "筛选的文件", Pattern: filter}},
+		Title:   i18n.T("app.dialog.openTitle"),
+		Filters: []runtime.FileFilter{{DisplayName: filterDisplayName(filter), Pattern: filter}},
 	})
 }
 
@@ -240,11 +252,11 @@ func (a *App) SelectSaveFile(defaultName, filter string) (string, error) {
 		filter = apkFilter
 	}
 	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:                "保存到",
+		Title:                i18n.T("app.dialog.saveTitle"),
 		DefaultFilename:      defaultName,
 		DefaultDirectory:     "",
 		CanCreateDirectories: true,
-		Filters:              []runtime.FileFilter{{DisplayName: "筛选的文件", Pattern: filter}},
+		Filters:              []runtime.FileFilter{{DisplayName: filterDisplayName(filter), Pattern: filter}},
 	})
 }
 
@@ -260,14 +272,14 @@ func (a *App) GetTools() []dto.ToolStatus {
 	return a.toolMgr.DetectAll()
 }
 
-// GetMirrors 返回内置镜像源。
+// GetMirrors 返回可用镜像源。
 func (a *App) GetMirrors() []dto.MirrorSource {
-	return tools.Mirrors
+	return a.toolMgr.MirrorsList()
 }
 
 // FetchBuildToolVersions 获取可安装的 build-tools 版本列表。
 func (a *App) FetchBuildToolVersions() ([]dto.BuildToolVersion, error) {
-	versions, err := a.toolMgr.FetchVersions(context.Background())
+	versions, err := a.toolMgr.FetchVersions(a.ctx)
 	if err != nil {
 		return []dto.BuildToolVersion{}, err
 	}
@@ -311,7 +323,7 @@ func (a *App) CleanTemp() dto.TaskResult {
 func (a *App) GenerateKeystore(req dto.KeystoreRequest) dto.TaskResult {
 	out, err := a.certMgr.Generate(context.Background(), req)
 	if err != nil {
-		logger.Error("生成密钥库失败", "error", logger.Mask(err.Error(), req.StorePass, req.KeyPass))
+		logger.Error(i18n.T("app.log.genFail"), "error", logger.Mask(err.Error(), req.StorePass, req.KeyPass))
 		return dto.TaskResult{Success: false, Message: err.Error(), Detail: out}
 	}
 	if req.StorePass != "" {
@@ -468,10 +480,15 @@ func (a *App) ImportKeystore(srcPath, storePass string) dto.TaskResult {
 	return dto.TaskResult{Success: true, Message: i18n.T("cert.msg.importDone", dst)}
 }
 
+// passwordKey 归一化密码存储 key：Windows 路径大小写不敏感，统一 Clean + 小写（仅作 key，展示用原路径）。
+func passwordKey(path string) string {
+	return strings.ToLower(filepath.Clean(path))
+}
+
 // GetSavedPassword 返回指定密钥库保存的密码（已解密），未保存时返回空串。
 func (a *App) GetSavedPassword(path string) string {
 	s := a.cfg.Snapshot()
-	cipher, ok := s.SavedPasswords[path]
+	cipher, ok := s.SavedPasswords[passwordKey(path)]
 	if !ok || cipher == "" {
 		return ""
 	}
@@ -483,30 +500,34 @@ func (a *App) GetSavedPassword(path string) string {
 }
 
 // SavePassword 加密保存指定密钥库的密码（password 为空则清除）。
+// 加密在 Update 外完成，失败时返回错误，避免 UI 误以为已保存。
 func (a *App) SavePassword(path, password string) error {
 	if path == "" {
 		return errors.New(i18n.T("app.err.emptyPath"))
+	}
+	key := passwordKey(path)
+	if password == "" {
+		return a.cfg.Update(func(cfg *config.Settings) {
+			delete(cfg.SavedPasswords, key)
+		})
+	}
+	cipher, err := secure.Encrypt(password, a.cfg.Snapshot().CryptoKey)
+	if err != nil {
+		return err
 	}
 	return a.cfg.Update(func(cfg *config.Settings) {
 		if cfg.SavedPasswords == nil {
 			cfg.SavedPasswords = map[string]string{}
 		}
-		if password == "" {
-			delete(cfg.SavedPasswords, path)
-			return
-		}
-		cipher, err := secure.Encrypt(password, cfg.CryptoKey)
-		if err != nil {
-			return
-		}
-		cfg.SavedPasswords[path] = cipher
+		cfg.SavedPasswords[key] = cipher
 	})
 }
 
 // ForgetPassword 删除指定密钥库保存的密码。
 func (a *App) ForgetPassword(path string) error {
+	key := passwordKey(path)
 	return a.cfg.Update(func(cfg *config.Settings) {
-		delete(cfg.SavedPasswords, path)
+		delete(cfg.SavedPasswords, key)
 	})
 }
 
@@ -539,7 +560,7 @@ func (a *App) SignAPK(opts dto.SignOptions) dto.SignResult {
 			a.emit("task:log", map[string]string{"stream": stream, "text": text})
 		},
 	}
-	result, err := a.signMgr.Sign(context.Background(), opts, cb)
+	result, err := a.signMgr.Sign(a.ctx, opts, cb)
 	if err != nil {
 		logger.Error(i18n.T("sign.log.signFail"), "error", logger.Mask(err.Error(), opts.StorePass, opts.KeyPass))
 		return dto.SignResult{Success: false, Message: err.Error()}

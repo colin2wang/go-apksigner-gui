@@ -128,7 +128,6 @@ export interface SignOptions {
   removeOldSign: boolean
   minSdk: number
   maxSdk: number
-  debuggableApkPerm: boolean
 }
 
 export interface VerifyResult {
